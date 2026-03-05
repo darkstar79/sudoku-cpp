@@ -1,0 +1,78 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include "candidate_grid.h"
+#include "i_game_validator.h"
+#include "i_solving_strategy.h"
+#include "i_sudoku_solver.h"
+
+#include <memory>
+#include <vector>
+
+namespace sudoku::core {
+
+/// Concrete implementation of Sudoku solver using logical techniques
+/// Chains strategies in difficulty order and falls back to backtracking if needed
+class SudokuSolver : public ISudokuSolver {
+public:
+    /// Constructor with dependency injection
+    /// @param validator Validator for checking board conflicts
+    explicit SudokuSolver(std::shared_ptr<IGameValidator> validator);
+
+    [[nodiscard]] std::expected<SolveStep, SolverError>
+    findNextStep(const std::vector<std::vector<int>>& board) const override;
+
+    /// Find next step with givens information for Avoidable Rectangle support.
+    /// @param board Current board state
+    /// @param original_puzzle Original puzzle (non-zero cells are givens)
+    /// @return Next SolveStep or error
+    [[nodiscard]] std::expected<SolveStep, SolverError>
+    findNextStep(const std::vector<std::vector<int>>& board,
+                 const std::vector<std::vector<int>>& original_puzzle) const override;
+
+    [[nodiscard]] std::expected<SolverResult, SolverError>
+    solvePuzzle(const std::vector<std::vector<int>>& board) const override;
+
+    [[nodiscard]] bool applyStep(std::vector<std::vector<int>>& board, const SolveStep& step) const override;
+
+private:
+    std::shared_ptr<IGameValidator> validator_;
+    std::vector<std::unique_ptr<ISolvingStrategy>> strategies_;
+
+    /// Initializes strategy chain in difficulty order
+    void initializeStrategies();
+
+    /// Checks if board is complete (no empty cells)
+    [[nodiscard]] static bool isComplete(const std::vector<std::vector<int>>& board);
+
+    /// Finds next logical step using an existing CandidateGrid (for internal solving loop)
+    [[nodiscard]] std::expected<SolveStep, SolverError> findNextStep(const std::vector<std::vector<int>>& board,
+                                                                     const CandidateGrid& candidates) const;
+
+    /// Applies step to both board and candidate grid (for internal solving loop)
+    [[nodiscard]] static bool applyStep(std::vector<std::vector<int>>& board, CandidateGrid& candidates,
+                                        const SolveStep& step);
+
+    /// Solves puzzle using simple backtracking (no circular dependency on generator)
+    /// Uses unified BacktrackingSolver with MostConstrained strategy
+    /// @param board Board to solve (modified in-place)
+    /// @return true if solution found, false if unsolvable
+    bool solveWithBacktracking(std::vector<std::vector<int>>& board) const;
+};
+
+}  // namespace sudoku::core

@@ -1,0 +1,409 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include "core/board_serializer.h"
+#include "core/board_utils.h"
+#include "core/constants.h"
+#include "encryption_manager.h"
+#include "save_manager.h"
+
+#include <fstream>
+#include <sstream>
+
+#include <spdlog/spdlog.h>
+#include <yaml-cpp/yaml.h>
+
+namespace {
+// Save file constants
+inline constexpr const char* SAVE_FILE_VERSION = "1.0";
+
+// Difficulty validation constants (min/max values for range checking)
+inline constexpr int MIN_DIFFICULTY = 0;  // Easy
+inline constexpr int MAX_DIFFICULTY = 3;  // Expert
+
+// Compression constants
+inline constexpr int DEFAULT_COMPRESSION_LEVEL = 6;
+
+// Zlib compression magic bytes
+// All zlib compressed data starts with 0x78 followed by a compression level indicator
+inline constexpr uint8_t ZLIB_MAGIC_BYTE = 0x78;
+inline constexpr uint8_t ZLIB_NO_COMPRESSION = 0x01;       // No compression
+inline constexpr uint8_t ZLIB_BEST_SPEED = 0x5E;           // Fast compression
+inline constexpr uint8_t ZLIB_DEFAULT_COMPRESSION = 0x9C;  // Default compression
+inline constexpr uint8_t ZLIB_BEST_COMPRESSION = 0xDA;     // Maximum compression
+inline constexpr size_t ZLIB_HEADER_MIN_SIZE = 2;
+}  // namespace
+
+namespace sudoku::core {
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — serializes all game state sections into YAML; each section is necessary; cannot split without adding indirection
+std::expected<void, SaveError> SaveManager::serializeToYaml(const SavedGame& game,
+                                                            const std::filesystem::path& file_path,
+                                                            const SaveSettings& settings) {
+    try {
+        // Validate board dimensions before serialization
+        if (game.current_state.size() != BOARD_SIZE || game.original_puzzle.size() != BOARD_SIZE) {
+            spdlog::error("Invalid board dimensions: current_state size={}, original_puzzle size={}",
+                          game.current_state.size(), game.original_puzzle.size());
+            return std::unexpected(SaveError::SerializationError);
+        }
+
+        for (const auto& row : game.current_state) {
+            if (row.size() != BOARD_SIZE) {
+                spdlog::error("Invalid board row size: {}", row.size());
+                return std::unexpected(SaveError::SerializationError);
+            }
+        }
+
+        for (const auto& row : game.original_puzzle) {
+            if (row.size() != BOARD_SIZE) {
+                spdlog::error("Invalid board row size in original_puzzle: {}", row.size());
+                return std::unexpected(SaveError::SerializationError);
+            }
+        }
+
+        YAML::Node root;
+
+        // Metadata
+        root["version"] = SAVE_FILE_VERSION;
+        root["save_id"] = game.save_id;
+        root["display_name"] = game.display_name;
+        root["created_time"] =
+            std::chrono::duration_cast<std::chrono::seconds>(game.created_time.time_since_epoch()).count();
+        root["last_modified"] =
+            std::chrono::duration_cast<std::chrono::seconds>(game.last_modified.time_since_epoch()).count();
+
+        // Puzzle data
+        YAML::Node puzzle_data;
+        puzzle_data["difficulty"] = static_cast<int>(game.difficulty);
+        puzzle_data["puzzle_seed"] = game.puzzle_seed;
+
+        // Original puzzle
+        puzzle_data["original_puzzle"] = BoardSerializer::serializeIntBoard(game.original_puzzle);
+
+        // Current state
+        puzzle_data["current_state"] = BoardSerializer::serializeIntBoard(game.current_state);
+
+        // Notes (if not empty)
+        bool has_notes = false;
+        for (const auto& row : game.notes) {
+            for (const auto& cell_notes : row) {
+                if (!cell_notes.empty()) {
+                    has_notes = true;
+                    break;
+                }
+            }
+            if (has_notes) {
+                break;
+            }
+        }
+
+        if (has_notes) {
+            puzzle_data["notes"] = BoardSerializer::serializeNotes(game.notes);
+        }
+
+        // Serialize hint-revealed cells
+        puzzle_data["hint_revealed_cells"] = BoardSerializer::serializeBoolBoard(game.hint_revealed_cells);
+
+        root["puzzle_data"] = puzzle_data;
+
+        // Game progress
+        YAML::Node progress;
+        progress["elapsed_time"] = game.elapsed_time.count();
+        progress["moves_made"] = game.moves_made;
+        progress["hints_used"] = game.hints_used;
+        progress["mistakes"] = game.mistakes;
+        progress["is_complete"] = game.is_complete;
+        root["progress"] = progress;
+
+        // Move history (if requested and not empty)
+        if (settings.include_history && !game.move_history.empty()) {
+            YAML::Node move_history;
+            for (const auto& move : game.move_history) {
+                YAML::Node yaml_move;
+                yaml_move["row"] = move.position.row;
+                yaml_move["col"] = move.position.col;
+                yaml_move["value"] = move.value;
+                yaml_move["type"] = static_cast<int>(move.move_type);
+                yaml_move["is_note"] = move.is_note;
+                yaml_move["timestamp"] =
+                    std::chrono::duration_cast<std::chrono::milliseconds>(move.timestamp.time_since_epoch()).count();
+                move_history.push_back(yaml_move);
+            }
+            root["move_history"] = move_history;
+            root["current_move_index"] = game.current_move_index;
+        }
+
+        // Auto-save info
+        if (game.is_auto_save) {
+            root["is_auto_save"] = true;
+            root["last_auto_save"] =
+                std::chrono::duration_cast<std::chrono::seconds>(game.last_auto_save.time_since_epoch()).count();
+        }
+
+        // UI preferences
+        root["auto_notes_enabled"] = game.auto_notes_enabled;
+
+        // Write to file with optional compression
+        // 1. Convert YAML to string
+        std::stringstream yaml_stream;
+        yaml_stream << root;
+        std::string yaml_str = yaml_stream.str();
+
+        // 2. Convert string to bytes
+        std::vector<uint8_t> data(yaml_str.begin(), yaml_str.end());
+
+        // 3. Optionally compress
+        if (settings.compress) {
+            auto compressed = compressData(data);
+            if (!compressed) {
+                return std::unexpected(compressed.error());
+            }
+            data = std::move(*compressed);
+        }
+
+        // 4. Optionally encrypt
+        if (settings.encrypt) {
+            auto encrypted = EncryptionManager::encrypt(data);
+            if (!encrypted) {
+                spdlog::error("Encryption failed");
+                return std::unexpected(SaveError::EncryptionError);
+            }
+            data = std::move(*encrypted);
+        }
+
+        // 5. Write to file (binary mode for compressed/encrypted data)
+        std::ofstream file(file_path, std::ios::binary);
+        if (!file.is_open()) {
+            return std::unexpected(SaveError::FileAccessError);
+        }
+        file.write(reinterpret_cast<const char*>(data.data()), static_cast<std::streamsize>(data.size()));
+        file.close();
+
+        return {};
+
+    } catch (const YAML::Exception& e) {
+        spdlog::error("YAML serialization error: {}", e.what());
+        return std::unexpected(SaveError::SerializationError);
+    } catch (const std::exception& e) {
+        spdlog::error("Serialization error: {}", e.what());
+        return std::unexpected(SaveError::SerializationError);
+    }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — parses all game state sections from YAML; each section is necessary; cannot split without adding indirection
+std::expected<SavedGame, SaveError> SaveManager::deserializeFromYaml(const std::filesystem::path& file_path) {
+    try {
+        // 1. Read file as binary
+        std::ifstream file(file_path, std::ios::binary);
+        if (!file.is_open()) {
+            return std::unexpected(SaveError::FileNotFound);
+        }
+        std::vector<uint8_t> data((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        file.close();
+
+        // 2. Detect if encrypted (check for "SDKE" magic bytes)
+        bool is_encrypted = EncryptionManager::isEncrypted(data);
+        if (is_encrypted) {
+            auto decrypted = EncryptionManager::decrypt(data);
+            if (!decrypted) {
+                spdlog::error("Decryption failed");
+                return std::unexpected(SaveError::EncryptionError);
+            }
+            data = std::move(*decrypted);
+        }
+
+        // 3. Detect if compressed (zlib magic bytes)
+        bool is_compressed = false;
+        if (data.size() >= ZLIB_HEADER_MIN_SIZE && data[0] == ZLIB_MAGIC_BYTE) {
+            // Check for valid zlib compression level indicators
+            is_compressed = (data[1] == ZLIB_NO_COMPRESSION || data[1] == ZLIB_BEST_SPEED ||
+                             data[1] == ZLIB_DEFAULT_COMPRESSION || data[1] == ZLIB_BEST_COMPRESSION);
+        }
+
+        // 4. Decompress if needed
+        if (is_compressed) {
+            auto decompressed = decompressData(data);
+            if (!decompressed) {
+                return std::unexpected(decompressed.error());
+            }
+            data = std::move(*decompressed);
+        }
+
+        // 5. Convert bytes to string and parse YAML
+        std::string yaml_str(data.begin(), data.end());
+        YAML::Node root = YAML::Load(yaml_str);
+
+        SavedGame game;
+
+        // Metadata
+        if (root["save_id"]) {
+            game.save_id = root["save_id"].as<std::string>();
+        }
+        if (root["display_name"]) {
+            game.display_name = root["display_name"].as<std::string>();
+        }
+        if (root["created_time"]) {
+            auto seconds = root["created_time"].as<long long>();
+            game.created_time = std::chrono::system_clock::time_point(std::chrono::seconds(seconds));
+        }
+        if (root["last_modified"]) {
+            auto seconds = root["last_modified"].as<long long>();
+            game.last_modified = std::chrono::system_clock::time_point(std::chrono::seconds(seconds));
+        }
+
+        // Puzzle data
+        if (!root["puzzle_data"]) {
+            spdlog::error("Missing required field: puzzle_data");
+            return std::unexpected(SaveError::SerializationError);
+        }
+
+        const auto& puzzle_data = root["puzzle_data"];
+
+        // Validate required fields
+        if (!puzzle_data["current_state"]) {
+            spdlog::error("Missing required field: current_state");
+            return std::unexpected(SaveError::SerializationError);
+        }
+        if (!puzzle_data["original_puzzle"]) {
+            spdlog::error("Missing required field: original_puzzle");
+            return std::unexpected(SaveError::SerializationError);
+        }
+
+        if (puzzle_data["difficulty"]) {
+            int difficulty_val = puzzle_data["difficulty"].as<int>();
+            if (difficulty_val < MIN_DIFFICULTY || difficulty_val > MAX_DIFFICULTY) {
+                spdlog::error("Invalid difficulty value: {}", difficulty_val);
+                return std::unexpected(SaveError::InvalidSaveData);
+            }
+            game.difficulty = static_cast<Difficulty>(difficulty_val);
+        }
+        if (puzzle_data["puzzle_seed"]) {
+            game.puzzle_seed = puzzle_data["puzzle_seed"].as<uint32_t>();
+        }
+
+        // Validate YAML board structure BEFORE deserialization
+        if (puzzle_data["current_state"].size() != BOARD_SIZE) {
+            spdlog::error("Invalid current_state dimensions in YAML: size={}", puzzle_data["current_state"].size());
+            return std::unexpected(SaveError::InvalidSaveData);
+        }
+        if (puzzle_data["original_puzzle"].size() != BOARD_SIZE) {
+            spdlog::error("Invalid original_puzzle dimensions in YAML: size={}", puzzle_data["original_puzzle"].size());
+            return std::unexpected(SaveError::InvalidSaveData);
+        }
+        for (size_t i = 0; i < BOARD_SIZE; ++i) {
+            if (puzzle_data["current_state"][i].size() != BOARD_SIZE) {
+                spdlog::error("Invalid current_state row {} size in YAML: {}", i,
+                              puzzle_data["current_state"][i].size());
+                return std::unexpected(SaveError::InvalidSaveData);
+            }
+            if (puzzle_data["original_puzzle"][i].size() != BOARD_SIZE) {
+                spdlog::error("Invalid original_puzzle row {} size in YAML: {}", i,
+                              puzzle_data["original_puzzle"][i].size());
+                return std::unexpected(SaveError::InvalidSaveData);
+            }
+        }
+
+        // Original puzzle
+        BoardSerializer::deserializeIntBoard(puzzle_data["original_puzzle"], game.original_puzzle);
+
+        // Current state
+        BoardSerializer::deserializeIntBoard(puzzle_data["current_state"], game.current_state);
+
+        // Notes
+        if (puzzle_data["notes"]) {
+            BoardSerializer::deserializeNotes(puzzle_data["notes"], game.notes);
+        }
+
+        // Hint-revealed cells (with backward compatibility)
+        if (puzzle_data["hint_revealed_cells"]) {
+            BoardSerializer::deserializeBoolBoard(puzzle_data["hint_revealed_cells"], game.hint_revealed_cells);
+        } else {
+            // Backward compatibility: old saves don't have this field
+            game.hint_revealed_cells.resize(BOARD_SIZE, std::vector<bool>(BOARD_SIZE, false));
+        }
+
+        // Game progress
+        if (root["progress"]) {
+            const auto& progress = root["progress"];
+
+            if (progress["elapsed_time"]) {
+                game.elapsed_time = std::chrono::milliseconds(progress["elapsed_time"].as<long long>());
+            }
+            if (progress["moves_made"]) {
+                game.moves_made = progress["moves_made"].as<int>();
+            }
+            if (progress["hints_used"]) {
+                game.hints_used = progress["hints_used"].as<int>();
+            }
+            if (progress["mistakes"]) {
+                game.mistakes = progress["mistakes"].as<int>();
+            }
+            if (progress["is_complete"]) {
+                game.is_complete = progress["is_complete"].as<bool>();
+            }
+        }
+
+        // Move history
+        if (root["move_history"]) {
+            const auto& move_history = root["move_history"];
+            for (const auto& yaml_move : move_history) {
+                Move move;
+                move.position.row = yaml_move["row"].as<int>();
+                move.position.col = yaml_move["col"].as<int>();
+                move.value = yaml_move["value"].as<int>();
+                move.move_type = static_cast<MoveType>(yaml_move["type"].as<int>());
+                move.is_note = yaml_move["is_note"].as<bool>();
+
+                if (yaml_move["timestamp"]) {
+                    auto ms = yaml_move["timestamp"].as<long long>();
+                    move.timestamp = std::chrono::steady_clock::time_point(std::chrono::milliseconds(ms));
+                }
+
+                game.move_history.push_back(move);
+            }
+
+            if (root["current_move_index"]) {
+                game.current_move_index = root["current_move_index"].as<int>();
+            }
+        }
+
+        // Auto-save info
+        if (root["is_auto_save"]) {
+            game.is_auto_save = root["is_auto_save"].as<bool>();
+        }
+        if (root["last_auto_save"]) {
+            auto seconds = root["last_auto_save"].as<long long>();
+            game.last_auto_save = std::chrono::system_clock::time_point(std::chrono::seconds(seconds));
+        }
+
+        // UI preferences (backward-compatible: defaults to false if missing)
+        if (root["auto_notes_enabled"]) {
+            game.auto_notes_enabled = root["auto_notes_enabled"].as<bool>();
+        }
+
+        return game;
+
+    } catch (const YAML::Exception& e) {
+        spdlog::error("YAML deserialization error: {}", e.what());
+        return std::unexpected(SaveError::SerializationError);
+    } catch (const std::exception& e) {
+        spdlog::error("Deserialization error: {}", e.what());
+        return std::unexpected(SaveError::SerializationError);
+    }
+}
+
+}  // namespace sudoku::core

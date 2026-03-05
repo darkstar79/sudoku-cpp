@@ -1,0 +1,553 @@
+# Code Quality Tools and Guidelines
+
+This document describes the code quality tools and processes for the sudoku-cpp project.
+
+## Overview
+
+The project uses three main code quality tools:
+
+1. **clang-format** - Automated code formatting
+2. **clang-tidy** - Static analysis and linting
+3. **gcovr** - Test coverage analysis
+
+All tools automatically **exclude third-party code** (imgui_backends directory).
+
+## Code Formatting (clang-format)
+
+### Quick Start
+
+```bash
+# Check which files need formatting
+./scripts/format.sh check
+
+# Format all project files
+./scripts/format.sh
+
+# Format specific files
+./scripts/format.sh src/core/game_state.cpp
+```
+
+### CMake Integration
+
+```bash
+# Format all files
+cmake --build --preset conan-release --target format
+
+# Check formatting (dry-run)
+cmake --build --preset conan-release --target format-check
+```
+
+### Formatting Rules
+
+Configuration file: `.clang-format`
+
+**Key Features:**
+- Based on LLVM style with C++23 customizations
+- **InsertBraces: true** - Automatically adds braces around all if/while/for statements
+- 120 character line limit
+- 4-space indentation (no tabs)
+- Left-aligned pointers and references (`int* ptr`)
+- Automatic include sorting and grouping
+
+**Bracing Policy (ENFORCED):**
+```cpp
+// ❌ BAD - Single-line if without braces
+if (condition) return;
+
+// ✅ GOOD - Always use braces
+if (condition) {
+    return;
+}
+```
+
+**Third-Party Code Exclusion:**
+- ImGui backend files in `src/imgui_backends/` are automatically excluded
+- Build directory and Conan cache are excluded
+- Only project source code in `src/core/`, `src/model/`, `src/view/`, `src/view_model/`, and `tests/` is formatted
+
+### Requirements
+
+- clang-format version 15+ (for InsertBraces feature)
+- Current system: clang-format 21.1.7 ✅
+
+## Static Analysis (clang-tidy)
+
+### Quick Start
+
+```bash
+# Run analysis
+./scripts/tidy.sh check
+
+# Run with verbose output
+./scripts/tidy.sh check --verbose
+
+# Apply automatic fixes
+./scripts/tidy.sh fix
+
+# Generate report
+./scripts/tidy.sh report
+```
+
+> **Performance note:** `tidy.sh` takes 7–15 minutes per run (full recompilation through
+> clang-tidy). When investigating warnings, run it **once** and save the output, then
+> filter the saved file for all follow-up queries:
+>
+> ```bash
+> ./scripts/tidy.sh check 2>&1 > /tmp/tidy_output.txt   # run once
+> grep -c "warning:" /tmp/tidy_output.txt                # count
+> grep "warning:" /tmp/tidy_output.txt | sed 's/.*\[\(.*\)\]/\1/' | sort | uniq -c | sort -rn  # by category
+> grep "warning:.*some-check" /tmp/tidy_output.txt       # locations for a specific check
+> ```
+>
+> Re-run the script (invalidating the cached output) only when:
+>
+> - Source files have been modified to fix warnings
+> - `.clang-tidy` configuration has changed (checks added/removed/suppressed)
+> - New source files have been added to the project
+
+### Incremental Check (Changed Lines Only)
+
+`scripts/tidy-diff.sh` runs clang-tidy only on the lines you changed, using
+`clang-tidy-diff.py`. It ignores pre-existing warnings in untouched code and
+runs in parallel — typically **5–30 seconds** for a normal commit.
+
+```bash
+# Check staged changes before committing (same as TIDY=1 git commit)
+./scripts/tidy-diff.sh
+
+# Check all changes on a feature branch vs main (for PR review)
+./scripts/tidy-diff.sh main
+
+# Check the last N commits
+./scripts/tidy-diff.sh HEAD~3
+```
+
+**Integrate into commit workflow:**
+
+```bash
+TIDY=1 git commit -m "my message"   # runs tidy-diff automatically
+```
+
+**Reliability caveat:** changes to `.cpp` files are fully covered. Changes to
+`.h` files are only covered if the header is a translation unit in
+`compile_commands.json` (uncommon). For header-only changes, follow up with
+`./scripts/tidy.sh check` or use the cached output approach above.
+
+### CMake Integration
+
+```bash
+# Run clang-tidy on all files
+cmake --build --preset conan-release --target tidy
+
+# Apply automatic fixes
+cmake --build --preset conan-release --target tidy-fix
+```
+
+**Automatic Analysis:**
+- clang-tidy runs automatically during compilation
+- Third-party ImGui backend files are excluded via `CMakeLists.txt`
+- Configuration prevents warnings from system headers
+
+### Enabled Checks
+
+Configuration file: `.clang-tidy`
+
+**Categories:**
+- `bugprone-*` - Bug-prone code patterns
+- `cert-*` - CERT secure coding guidelines
+- `clang-analyzer-*` - Deep static analysis
+- `cppcoreguidelines-*` - C++ Core Guidelines
+- `modernize-*` - Modern C++ features (C++23)
+- `performance-*` - Performance optimizations
+- `readability-*` - Code readability
+
+**Key Settings:**
+- Function complexity threshold: 25
+- Function line threshold: 100
+- Minimum variable name length: 1 (allows single-char loop/math variables)
+- Requires `[[nodiscard]]` on appropriate functions
+- Enforces `std::uint8_t` for small enums
+- Requires braces around single-statement conditionals
+
+**Excluded Checks:**
+- Magic numbers (context-dependent)
+- Non-private member variables in classes (data structures)
+- Trailing return types (preference)
+- Easily swappable parameters (unavoidable in some APIs)
+
+### Common Warnings and Fixes
+
+**Performance Issues:**
+```cpp
+// Warning: performance-enum-size
+enum class MoveType {  // Uses 4 bytes
+    Place, Remove, Note
+};
+
+// Fix: Specify smaller base type
+enum class MoveType : std::uint8_t {  // Uses 1 byte
+    Place, Remove, Note
+};
+```
+
+**Modernization:**
+```cpp
+// Warning: modernize-use-nodiscard
+virtual bool isComplete() const = 0;
+
+// Fix: Add [[nodiscard]] attribute
+[[nodiscard]] virtual bool isComplete() const = 0;
+```
+
+**Guidelines Compliance:**
+```cpp
+// Warning: cppcoreguidelines-special-member-functions
+class IGameValidator {
+public:
+    virtual ~IGameValidator() = default;
+    // Missing: copy/move constructors and assignment operators
+};
+
+// Fix: Explicitly delete or define all special members
+class IGameValidator {
+public:
+    virtual ~IGameValidator() = default;
+    IGameValidator() = default;
+    IGameValidator(const IGameValidator&) = delete;
+    IGameValidator& operator=(const IGameValidator&) = delete;
+    IGameValidator(IGameValidator&&) = delete;
+    IGameValidator& operator=(IGameValidator&&) = delete;
+};
+```
+
+### Customization
+
+**Adding New Checks:**
+
+Edit `.clang-tidy`:
+```yaml
+Checks: '
+  -*,
+  bugprone-*,
+  your-new-check-*
+'
+```
+
+**Check-Specific Options:**
+```yaml
+CheckOptions:
+  - key: readability-identifier-length.MinimumVariableNameLength
+    value: 3
+  - key: performance-for-range-copy.WarnOnAllAutoCopies
+    value: false
+```
+
+### Editor Integration
+
+**VS Code:**
+
+Install the clangd extension for real-time analysis:
+```json
+{
+    "clangd.arguments": ["--clang-tidy"]
+}
+```
+
+**CLion:**
+
+Enable clang-tidy in Settings → Editor → Inspections → C/C++ → Clang-Tidy.
+
+### Troubleshooting
+
+**Compilation Database Issues:**
+
+If you see "Could not auto-detect compilation database":
+```bash
+# Regenerate compilation database
+cmake --preset conan-release
+```
+
+**Module Compatibility:**
+
+For C++23 projects with modules, ensure:
+```cmake
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF)  # Disable for clang-tidy compatibility
+```
+
+**Performance:**
+
+Large codebases may be slow to analyze:
+```bash
+# Analyze specific files only
+clang-tidy -p=build/Release src/specific/file.cpp
+
+# Use parallel processing
+make -j$(nproc) tidy
+```
+
+### Third-Party Code Exclusion
+
+**CMakeLists.txt configuration:**
+```cmake
+# Exclude ImGui backend files from clang-tidy
+if(CLANG_TIDY_EXE)
+    set_source_files_properties(${IMGUI_BACKEND_SOURCES} PROPERTIES
+        CXX_CLANG_TIDY ""
+    )
+endif()
+```
+
+**.clang-tidy configuration:**
+```yaml
+# Only analyze project headers, not third-party
+HeaderFilterRegex: 'src/(?!imgui_backends).*\.h$'
+```
+
+## Test Coverage (gcovr)
+
+### Quick Start
+
+```bash
+# Generate coverage report
+./scripts/coverage.sh
+
+# Generate HTML report
+./scripts/coverage.sh html
+
+# Generate all formats
+./scripts/coverage.sh all
+
+# Clean rebuild with coverage
+./scripts/coverage.sh clean
+```
+
+### Current Metrics
+
+- **Line Coverage:** 91.2% (target: 80%)
+- **Function Coverage:** 90.5% (target: 70%)
+- **Branch Coverage:** 59.8% (target: 55%)
+
+### Coverage Reports
+
+| Target | Description | Output |
+|--------|-------------|---------|
+| `coverage` | Text summary to console | Terminal output |
+| `coverage-html` | Detailed HTML report | `coverage_report.html` |
+| `coverage-xml` | XML format for CI/CD | `coverage.xml` |
+| `coverage-json` | JSON for programmatic use | `coverage.json` |
+| `coverage-all` | All formats combined | Multiple files |
+| `coverage-lcov` | Legacy lcov format | `coverage_html_lcov/` |
+
+### Interpreting Results
+
+**Coverage Metrics:**
+- **Line Coverage:** Percentage of executable lines that were executed
+- **Branch Coverage:** Percentage of conditional branches that were taken
+- **Function Coverage:** Percentage of functions that were called
+
+**HTML Report Features:**
+- **File-by-file breakdown** with line-by-line coverage
+- **Color coding:** Red (uncovered), Yellow (partial), Green (covered)
+- **Interactive navigation** through source files
+- **Summary statistics** and coverage trends
+
+**Quality Thresholds:**
+
+| Coverage Level | Line % | Branch % | Quality |
+|----------------|--------|----------|---------|
+| Excellent | 90%+ | 85%+ | 🟢 High quality |
+| Good | 80-89% | 70-84% | 🟡 Acceptable |
+| Poor | <80% | <70% | 🔴 Needs improvement |
+
+### Configuration
+
+Coverage analysis is configured through `.gcovr.cfg`:
+
+```ini
+# Minimum thresholds
+fail-under-line = 80      # 80% line coverage required
+fail-under-branch = 70    # 70% branch coverage required
+
+# HTML report thresholds
+html-medium-threshold = 75
+html-high-threshold = 90
+
+# Exclusions
+exclude = tests/.*, build/.*, .*imgui.*, /usr/.*
+```
+
+### Coverage Exclusions
+
+The following are automatically excluded from coverage analysis:
+- Test files (`tests/.*`)
+- Build artifacts (`build/.*`)
+- Third-party libraries (ImGui, SDL, Conan packages)
+- System headers (`/usr/.*`)
+
+### CI/CD Integration
+
+For continuous integration, use the XML output:
+
+```bash
+# Generate coverage for CI
+./scripts/coverage.sh xml
+
+# Check if coverage meets thresholds
+gcovr --config .gcovr.cfg --fail-under-line 80 --fail-under-branch 70
+```
+
+### Troubleshooting Coverage
+
+**Coverage Data Not Generated:**
+1. Ensure debug build: `CMAKE_BUILD_TYPE=Debug`
+2. Run tests before generating reports
+3. Check that `--coverage` flags are applied
+
+**Low Coverage Numbers:**
+1. Verify tests are comprehensive
+2. Check for excluded files in `.gcovr.cfg`
+3. Review untested code paths in HTML report
+
+**Performance Issues:**
+
+Coverage builds are slower due to instrumentation:
+- Use for testing and CI only
+- Don't use coverage flags in release builds
+- Clean build directory between coverage runs
+
+### Best Practices for Coverage
+
+1. **Run coverage regularly** during development
+2. **Aim for high coverage** but focus on meaningful tests
+3. **Review uncovered code** to identify missing test cases
+4. **Use branch coverage** to ensure all code paths are tested
+5. **Integrate with CI/CD** to prevent coverage regressions
+
+## Workflow Integration
+
+### Pre-Commit Checklist
+
+1. **Format your code:**
+   ```bash
+   ./scripts/format.sh
+   ```
+
+2. **Check for warnings:**
+   ```bash
+   ./scripts/tidy.sh check
+   ```
+
+3. **Run tests:**
+   ```bash
+   ./build/Release/bin/tests/unit_tests
+   ./build/Release/bin/tests/integration_tests
+   ```
+
+4. **Check coverage (optional):**
+   ```bash
+   ./scripts/coverage.sh
+   ```
+
+### Automated Checks (GitHub Actions CI/CD)
+
+**Status:** ✅ **ACTIVE** - CI/CD pipeline fully operational
+
+**Workflow:** `.github/workflows/ci.yml`
+
+All pushes and pull requests automatically enforce:
+- ✅ Code formatting check passes (clang-format)
+- ✅ Zero clang-tidy errors
+- ✅ All tests passing (114 test cases, 1,830 assertions)
+- ✅ Coverage ≥80% (line and function)
+
+**Quality Gates:**
+- **Code Quality Job** (~2-3 min): Formatting + static analysis
+- **Build and Test Job** (~5-8 min): Compilation + test execution
+- **Coverage Analysis Job** (~6-10 min): Coverage verification + artifact upload
+
+**Local Pre-Commit Hooks:**
+```bash
+./scripts/setup-hooks.sh  # Install local git hooks for instant feedback
+```
+
+**Viewing CI Results:**
+- Check the "Actions" tab on GitHub
+- Pull request checks show pass/fail status
+- Download coverage reports from workflow artifacts
+
+## File Organization
+
+### Configuration Files
+
+- `.clang-format` - Code formatting rules
+- `.clang-tidy` - Static analysis configuration
+- `.gitignore` - Excludes generated files and third-party code
+
+### Quality Scripts
+
+- `scripts/format.sh` - Code formatting script
+- `scripts/tidy.sh` - Static analysis script
+- `scripts/coverage.sh` - Test coverage script
+
+### Build Integration
+
+- `CMakeLists.txt` - Contains targets: `format`, `format-check`, `tidy`, `tidy-fix`
+- Automatic exclusion of third-party code from all tools
+
+## Common Issues and Solutions
+
+### Issue: "clang-format not found"
+
+**Solution:**
+```bash
+sudo dnf install clang-tools-extra
+```
+
+### Issue: "InsertBraces not working"
+
+**Solution:**
+Check version (need 15+):
+```bash
+clang-format --version
+```
+
+### Issue: "Too many warnings from ImGui code"
+
+**Solution:**
+This should not happen - ImGui backends are excluded. If you see warnings:
+1. Check that files are in `src/imgui_backends/` directory
+2. Verify CMakeLists.txt exclusion is present
+3. Rebuild from clean: `rm -rf build && conan build .`
+
+### Issue: "Format script is slow"
+
+**Solution:**
+Format specific files instead of entire project:
+```bash
+./scripts/format.sh src/core/game_state.cpp src/model/game_state.cpp
+```
+
+## Best Practices
+
+1. **Always format before commit** - Use `./scripts/format.sh`
+2. **Fix clang-tidy warnings** - Don't ignore them, they catch real bugs
+3. **Write tests for new code** - Maintain >70% coverage
+4. **Use `[[nodiscard]]`** - For functions returning important values
+5. **Use braces** - Even for single-line conditionals (enforced by formatter)
+6. **Keep functions small** - Under 100 lines (clang-tidy warning at 100)
+7. **Use modern C++23** - std::expected, designated initializers, ranges
+
+## Version Requirements
+
+- **clang-format:** 15+ (current: 21.1.7) ✅
+- **clang-tidy:** Any recent version (current: 21.1.7) ✅
+- **gcovr:** 5.0+ (current: installed) ✅
+- **CMake:** 3.28+ ✅
+- **GCC:** 15+ with C++23 support ✅
+
+## Resources
+
+- [LLVM Coding Standards](https://llvm.org/docs/CodingStandards.html)
+- [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/)
+- [clang-format Documentation](https://clang.llvm.org/docs/ClangFormat.html)
+- [clang-tidy Checks](https://clang.llvm.org/extra/clang-tidy/checks/list.html)

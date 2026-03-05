@@ -1,0 +1,100 @@
+#!/bin/bash
+
+# Pre-commit hook for sudoku-cpp
+# FAST checks on staged files only (typically <2 seconds)
+#
+# What runs here (fast):
+#   - GPLv3 license header check on staged C++ files
+#   - clang-format check on staged C++ files
+#   - clang-tidy on changed lines only (opt-in, ~5-30s)
+#
+# What runs in CI (thorough):
+#   - Full clang-format check on all files
+#   - Full clang-tidy static analysis on all files
+#   - Unit and integration tests
+#   - Coverage analysis
+#
+# To also run clang-tidy on changed lines (fast, recommended):
+#   TIDY=1 git commit -m "message"
+#
+# Note: TIDY=1 only checks lines you changed, not pre-existing warnings.
+# For header-only changes, also run: ./scripts/tidy.sh check
+#
+# Install with: ./scripts/setup-hooks.sh
+
+set -e
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Get the root directory of the git repository
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# Get staged C++ files (added, copied, modified - not deleted)
+STAGED_CPP_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h|hpp)$' | grep -v 'imgui_backends/' || true)
+
+if [ -z "$STAGED_CPP_FILES" ]; then
+    exit 0
+fi
+
+FILE_COUNT=$(echo "$STAGED_CPP_FILES" | wc -l)
+CHECKS_PASSED=true
+
+# Check 1: GPLv3 license header (staged files only, ~instant)
+echo -e "${YELLOW}[pre-commit] Checking license headers on $FILE_COUNT staged file(s)...${NC}"
+LICENSE_FAILED=false
+while IFS= read -r file; do
+    if [ -f "$file" ]; then
+        if ! head -1 "$file" | grep -q "// sudoku-cpp - Offline Sudoku Game"; then
+            echo -e "  ${RED}Missing license header:${NC} $file"
+            LICENSE_FAILED=true
+        fi
+    fi
+done <<< "$STAGED_CPP_FILES"
+
+if [ "$LICENSE_FAILED" = true ]; then
+    echo -e "${RED}License header check failed!${NC}"
+    echo -e "${YELLOW}Add GPLv3 header to new files (see any existing .h/.cpp for the template).${NC}"
+    CHECKS_PASSED=false
+else
+    echo -e "${GREEN}License headers OK${NC}"
+fi
+
+# Check 2: Code formatting (staged files only, ~instant)
+echo -e "${YELLOW}[pre-commit] Checking formatting on $FILE_COUNT staged file(s)...${NC}"
+FORMAT_FAILED=false
+while IFS= read -r file; do
+    if [ -f "$file" ]; then
+        if ! clang-format --dry-run --Werror "$file" 2>/dev/null; then
+            echo -e "  ${RED}Needs formatting:${NC} $file"
+            FORMAT_FAILED=true
+        fi
+    fi
+done <<< "$STAGED_CPP_FILES"
+
+if [ "$FORMAT_FAILED" = true ]; then
+    echo -e "${RED}Formatting check failed!${NC}"
+    echo -e "${YELLOW}Run './scripts/format.sh' to fix, then re-stage.${NC}"
+    CHECKS_PASSED=false
+else
+    echo -e "${GREEN}Formatting OK${NC}"
+fi
+
+# Check 3: clang-tidy on changed lines only (opt-in, ~5-30s)
+if [ "${TIDY:-0}" = "1" ]; then
+    if ! "$REPO_ROOT/scripts/tidy-diff.sh"; then
+        CHECKS_PASSED=false
+    fi
+fi
+
+if [ "$CHECKS_PASSED" = true ]; then
+    exit 0
+else
+    echo -e "${RED}Pre-commit checks failed!${NC}"
+    echo -e "${YELLOW}Skip with: git commit --no-verify${NC}"
+    exit 1
+fi

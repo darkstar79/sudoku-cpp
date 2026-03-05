@@ -1,0 +1,313 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include "core/board_utils.h"
+#include "game_view_model.h"
+
+#include <algorithm>
+
+#include <spdlog/spdlog.h>
+
+namespace sudoku::viewmodel {
+
+void GameViewModel::selectCell(size_t row, size_t col) {
+    selectCell({.row = row, .col = col});
+}
+
+void GameViewModel::selectCell(const core::Position& pos) {
+    if (pos.row >= core::BOARD_SIZE || pos.col >= core::BOARD_SIZE) {
+        return;  // Invalid position
+    }
+
+    gameState.update([&pos](model::GameState& state) { state.setSelectedPosition(pos); });
+
+    spdlog::debug("Cell selected: ({}, {})", pos.row, pos.col);
+}
+
+void GameViewModel::enterNumber(int number) {
+    if (number < 1 || number > 9 || !isGameActive()) {
+        return;
+    }
+
+    const auto& current_state = gameState.get();
+    auto pos_opt = current_state.getSelectedPosition();
+    if (!pos_opt.has_value()) {
+        return;  // No cell selected
+    }
+    const auto& pos = pos_opt.value();
+
+    // Don't allow editing given numbers
+    if (current_state.getCell(pos.row, pos.col).is_given) {
+        return;
+    }
+
+    // Create move
+    core::Move move;
+    move.position = pos;
+    move.value = number;
+    move.move_type = core::MoveType::PlaceNumber;
+    move.timestamp = std::chrono::steady_clock::now();
+
+    // Capture previous state for undo
+    const auto& cell = current_state.getCell(pos);
+    move.previous_value = cell.value;
+    move.previous_notes = cell.notes;
+    move.previous_hint_revealed = cell.is_hint_revealed;
+
+    // Validate move - but allow incorrect numbers to be placed
+    auto validation_result = validator_->validateMove(current_state.extractNumbers(), move);
+
+    bool is_mistake = false;
+    if (validation_result) {
+        is_mistake = !*validation_result;  // Valid move but incorrect number
+    } else {
+        // Even if validation fails, allow the move but mark as mistake
+        is_mistake = true;
+    }
+
+    // Apply move
+    applyMove(move);
+    recordMove(move, is_mistake);
+
+    // Check for completion
+    checkGameCompletion();
+
+    updateUIState();
+    autoSaveIfNeeded();
+}
+
+void GameViewModel::enterNote(int number) {
+    if (number < 1 || number > 9 || !isGameActive() || isAutoNotesEnabled()) {
+        return;
+    }
+
+    const auto& current_state = gameState.get();
+    auto pos_opt = current_state.getSelectedPosition();
+    if (!pos_opt.has_value()) {
+        return;  // No cell selected
+    }
+    const auto& pos = pos_opt.value();
+
+    // Don't allow notes on given numbers or filled cells
+    const auto& cell = current_state.getCell(pos.row, pos.col);
+    if (cell.is_given || cell.value != 0) {
+        return;
+    }
+
+    // Check if note already exists to determine move type
+    bool note_exists = std::ranges::contains(cell.notes, number);
+
+    // Create move for undo/redo support
+    core::Move move;
+    move.position = pos;
+    move.value = number;
+    move.move_type = note_exists ? core::MoveType::RemoveNote : core::MoveType::AddNote;
+    move.is_note = true;
+    move.timestamp = std::chrono::steady_clock::now();
+
+    // Capture previous state for undo
+    move.previous_value = cell.value;
+    move.previous_notes = cell.notes;
+    move.previous_hint_revealed = cell.is_hint_revealed;
+
+    // Apply move
+    applyMove(move);
+    recordMove(move, false);  // Notes are never mistakes
+
+    updateUIState();
+    spdlog::debug("Note {} {} at ({}, {})", number, note_exists ? "removed" : "added", pos.row, pos.col);
+}
+
+void GameViewModel::clearCell() {
+    clearSelectedCell();
+}
+
+void GameViewModel::clearSelectedCell() {
+    if (!isGameActive()) {
+        return;
+    }
+
+    const auto& current_state = gameState.get();
+    auto pos_opt = current_state.getSelectedPosition();
+    if (!pos_opt.has_value()) {
+        return;  // No cell selected
+    }
+    const auto& pos = pos_opt.value();
+
+    // Don't allow clearing given numbers
+    const auto& cell = current_state.getCell(pos.row, pos.col);
+    if (cell.is_given) {
+        return;
+    }
+
+    // Only create move if there's something to clear
+    if (cell.value == 0 && cell.notes.empty()) {
+        return;  // Nothing to clear
+    }
+
+    // Create move for undo/redo support
+    core::Move move;
+    move.position = pos;
+    move.value = 0;  // Clear to empty
+    move.move_type = core::MoveType::RemoveNumber;
+    move.timestamp = std::chrono::steady_clock::now();
+
+    // Capture previous state for undo
+    move.previous_value = cell.value;
+    move.previous_notes = cell.notes;
+    move.previous_hint_revealed = cell.is_hint_revealed;
+
+    // Apply move
+    applyMove(move);
+    recordMove(move, false);  // Clearing is not a mistake
+
+    updateUIState();
+    spdlog::debug("Cell cleared at ({}, {})", pos.row, pos.col);
+}
+
+void GameViewModel::recomputeAutoNotes() {
+    gameState.update([this](model::GameState& state) {
+        auto board = state.extractNumbers();
+        core::forEachCell([&](size_t row, size_t col) {
+            auto& cell = state.getCell(row, col);
+            if (cell.value == 0 && !cell.is_given) {
+                cell.notes = validator_->getPossibleValues(board, {.row = row, .col = col});
+            } else {
+                cell.notes.clear();
+            }
+        });
+    });
+}
+
+void GameViewModel::updateConflictHighlighting() {
+    auto board = gameState.get().extractNumbers();
+    auto conflicts = validator_->findConflicts(board);
+    gameState.update([&conflicts](model::GameState& state) { state.updateConflicts(conflicts); });
+}
+
+void GameViewModel::cleanupConflictingNotes(model::GameState& state, const core::Position& pos, int number) {
+    // Remove the placed number from notes in all related cells
+
+    // Same row
+    for (size_t col = 0; col < core::BOARD_SIZE; ++col) {
+        if (col != pos.col) {  // Don't modify the cell we just placed the number in
+            auto& cell = state.getCell(pos.row, col);
+            if (cell.value == 0) {  // Only modify empty cells
+                state.removeNote({.row = pos.row, .col = col}, number);
+            }
+        }
+    }
+
+    // Same column
+    for (size_t row = 0; row < core::BOARD_SIZE; ++row) {
+        if (row != pos.row) {  // Don't modify the cell we just placed the number in
+            auto& cell = state.getCell(row, pos.col);
+            if (cell.value == 0) {  // Only modify empty cells
+                state.removeNote({.row = row, .col = pos.col}, number);
+            }
+        }
+    }
+
+    // Same 3x3 block
+    size_t box_start_row = (pos.row / core::BOX_SIZE) * core::BOX_SIZE;
+    size_t box_start_col = (pos.col / core::BOX_SIZE) * core::BOX_SIZE;
+    for (size_t row = box_start_row; row < box_start_row + core::BOX_SIZE; ++row) {
+        for (size_t col = box_start_col; col < box_start_col + core::BOX_SIZE; ++col) {
+            if (row != pos.row || col != pos.col) {  // Don't modify the cell we just placed the number in
+                auto& cell = state.getCell(row, col);
+                if (cell.value == 0) {  // Only modify empty cells
+                    state.removeNote({.row = row, .col = col}, number);
+                }
+            }
+        }
+    }
+
+    spdlog::debug("Cleaned up conflicting notes for number {} at ({}, {})", number, pos.row, pos.col);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) — restores notes in row/col/box with conflict checking; nesting is inherent
+void GameViewModel::restoreConflictingNotes(model::GameState& state, const core::Position& pos, int number) {
+    // Restore the removed number to notes in all related cells (inverse of cleanupConflictingNotes)
+    // Only restore if the note would still be valid (no conflicts with other placed numbers)
+
+    // Get current board to check what numbers are already placed
+    auto board = state.extractNumbers();
+
+    // Helper: Check if a number can be a valid note at a position
+    auto canBeNote = [&](const core::Position& check_pos, int num) -> bool {
+        // Check row for conflicts
+        for (size_t col = 0; col < core::BOARD_SIZE; ++col) {
+            if (board[check_pos.row][col] == num) {
+                return false;
+            }
+        }
+        // Check column for conflicts
+        for (size_t row = 0; row < core::BOARD_SIZE; ++row) {
+            if (board[row][check_pos.col] == num) {
+                return false;
+            }
+        }
+        // Check 3x3 box for conflicts
+        size_t box_start_row = (check_pos.row / core::BOX_SIZE) * core::BOX_SIZE;
+        size_t box_start_col = (check_pos.col / core::BOX_SIZE) * core::BOX_SIZE;
+        for (size_t row = box_start_row; row < box_start_row + core::BOX_SIZE; ++row) {
+            for (size_t col = box_start_col; col < box_start_col + core::BOX_SIZE; ++col) {
+                if (board[row][col] == num) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    };
+
+    // Same row
+    for (size_t col = 0; col < core::BOARD_SIZE; ++col) {
+        if (col != pos.col) {
+            auto& cell = state.getCell(pos.row, col);
+            if (cell.value == 0 && canBeNote({.row = pos.row, .col = col}, number)) {
+                state.addNote({.row = pos.row, .col = col}, number);
+            }
+        }
+    }
+
+    // Same column
+    for (size_t row = 0; row < core::BOARD_SIZE; ++row) {
+        if (row != pos.row) {
+            auto& cell = state.getCell(row, pos.col);
+            if (cell.value == 0 && canBeNote({.row = row, .col = pos.col}, number)) {
+                state.addNote({.row = row, .col = pos.col}, number);
+            }
+        }
+    }
+
+    // Same 3x3 block
+    size_t box_start_row = (pos.row / core::BOX_SIZE) * core::BOX_SIZE;
+    size_t box_start_col = (pos.col / core::BOX_SIZE) * core::BOX_SIZE;
+    for (size_t row = box_start_row; row < box_start_row + core::BOX_SIZE; ++row) {
+        for (size_t col = box_start_col; col < box_start_col + core::BOX_SIZE; ++col) {
+            if (row != pos.row || col != pos.col) {
+                auto& cell = state.getCell(row, col);
+                if (cell.value == 0 && canBeNote({.row = row, .col = col}, number)) {
+                    state.addNote({.row = row, .col = col}, number);
+                }
+            }
+        }
+    }
+
+    spdlog::debug("Restored conflicting notes for number {} at ({}, {})", number, pos.row, pos.col);
+}
+
+}  // namespace sudoku::viewmodel

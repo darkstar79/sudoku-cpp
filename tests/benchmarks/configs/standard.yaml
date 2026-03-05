@@ -1,0 +1,18 @@
+# Standard benchmark configuration (based on benchmark_phase2.cpp)
+# Used for regular performance tracking and regression testing
+#
+# Usage:
+#   ./bin/benchmarks/puzzle_generation_benchmark --config tests/benchmarks/configs/standard.yaml
+
+benchmarks:
+  - name: "Hard Difficulty"
+    difficulty: Hard
+    iterations: 20
+    max_attempts: 200
+    verbose: false
+
+  - name: "Expert Difficulty"
+    difficulty: Expert
+    iterations: 20
+    max_attempts: 1000
+    verbose: true  # Show per-iteration for Expert

@@ -1,0 +1,305 @@
+name: Nightly
+
+on:
+  schedule:
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+
+jobs:
+  strategy-correctness:
+    name: Strategy Correctness
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for recent changes
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — running unconditionally"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$(git log --since='24 hours ago' --oneline)" ]; then
+            echo "No commits in the last 24 hours — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Recent commits found — running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install system dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            ccache \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libudev-dev \
+            libegl1-mesa-dev \
+            libdbus-1-dev \
+            libpulse-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-xcb-dev \
+            libfontenc-dev \
+            libice-dev \
+            libsm-dev \
+            libxaw7-dev \
+            libxcomposite-dev \
+            libxdamage-dev \
+            libxkbfile-dev \
+            libxmu-dev \
+            libxmuu-dev \
+            libxpm-dev \
+            libxres-dev \
+            libxss-dev \
+            libxt-dev \
+            libxtst-dev \
+            libxv-dev \
+            libxxf86vm-dev \
+            libxcb-glx0-dev \
+            libxcb-render0-dev \
+            libxcb-render-util0-dev \
+            libxcb-xkb-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-shape0-dev \
+            libxcb-sync-dev \
+            libxcb-xfixes0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-dri3-dev \
+            libxcb-cursor-dev \
+            libxcb-dri2-0-dev \
+            libxcb-present-dev \
+            libxcb-composite0-dev \
+            libxcb-ewmh-dev \
+            libxcb-res0-dev \
+            libxcb-util-dev \
+            libxcb-util0-dev
+
+      - name: Install Conan
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          pip3 install conan
+          conan profile detect --force
+
+      - name: Cache Conan packages
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-relwithdebinfo-${{ hashFiles('conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-relwithdebinfo-
+
+      - name: Cache ccache
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-relwithdebinfo-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-relwithdebinfo-
+
+      - name: Configure ccache
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          ccache --set-config=max_size=500M
+          ccache --zero-stats
+
+      - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: conan install . --build=missing -s build_type=RelWithDebInfo
+
+      - name: Build
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          cmake --preset conan-relwithdebinfo
+          cmake --build --preset conan-relwithdebinfo
+
+      - name: Show ccache stats
+        if: steps.check.outputs.skip != 'true'
+        run: ccache --show-stats
+
+      - name: Run strategy correctness tests
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          # Find the unit_tests binary (Conan nesting varies)
+          if [ -f "build/RelWithDebInfo/build/RelWithDebInfo/bin/tests/unit_tests" ]; then
+            UNIT_TESTS="build/RelWithDebInfo/build/RelWithDebInfo/bin/tests/unit_tests"
+          else
+            UNIT_TESTS="build/RelWithDebInfo/bin/tests/unit_tests"
+          fi
+          echo "Running: $UNIT_TESTS [strategy]"
+          "$UNIT_TESTS" "[strategy]"
+
+  sanitizer-check:
+    name: ASan + UBSan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for recent changes
+        id: check
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — running unconditionally"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$(git log --since='24 hours ago' --oneline)" ]; then
+            echo "No commits in the last 24 hours — skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Recent commits found — running"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install system dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            cmake \
+            ninja-build \
+            ccache \
+            libgl1-mesa-dev \
+            libx11-dev \
+            libxrandr-dev \
+            libxinerama-dev \
+            libxcursor-dev \
+            libxi-dev \
+            libudev-dev \
+            libegl1-mesa-dev \
+            libdbus-1-dev \
+            libpulse-dev \
+            libwayland-dev \
+            libxkbcommon-dev \
+            libx11-xcb-dev \
+            libfontenc-dev \
+            libice-dev \
+            libsm-dev \
+            libxaw7-dev \
+            libxcomposite-dev \
+            libxdamage-dev \
+            libxkbfile-dev \
+            libxmu-dev \
+            libxmuu-dev \
+            libxpm-dev \
+            libxres-dev \
+            libxss-dev \
+            libxt-dev \
+            libxtst-dev \
+            libxv-dev \
+            libxxf86vm-dev \
+            libxcb-glx0-dev \
+            libxcb-render0-dev \
+            libxcb-render-util0-dev \
+            libxcb-xkb-dev \
+            libxcb-icccm4-dev \
+            libxcb-image0-dev \
+            libxcb-keysyms1-dev \
+            libxcb-randr0-dev \
+            libxcb-shape0-dev \
+            libxcb-sync-dev \
+            libxcb-xfixes0-dev \
+            libxcb-xinerama0-dev \
+            libxcb-dri3-dev \
+            libxcb-cursor-dev \
+            libxcb-dri2-0-dev \
+            libxcb-present-dev \
+            libxcb-composite0-dev \
+            libxcb-ewmh-dev \
+            libxcb-res0-dev \
+            libxcb-util-dev \
+            libxcb-util0-dev
+
+      - name: Install Conan
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          pip3 install conan
+          conan profile detect --force
+
+      - name: Cache Conan packages
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.conan2
+          key: conan-${{ runner.os }}-release-${{ hashFiles('conanfile.py') }}
+          restore-keys: |
+            conan-${{ runner.os }}-release-
+
+      - name: Cache ccache
+        if: steps.check.outputs.skip != 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-sanitizer-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-sanitizer-
+
+      - name: Configure ccache
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          ccache --set-config=max_size=500M
+          ccache --zero-stats
+
+      - name: Install dependencies
+        if: steps.check.outputs.skip != 'true'
+        run: conan install . --build=missing -s build_type=Release
+
+      - name: Build with sanitizers
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          cmake --preset conan-release -DENABLE_SANITIZERS=ON
+          cmake --build --preset conan-release
+
+      - name: Show ccache stats
+        if: steps.check.outputs.skip != 'true'
+        run: ccache --show-stats
+
+      - name: Run unit tests under ASan + UBSan
+        if: steps.check.outputs.skip != 'true'
+        env:
+          ASAN_OPTIONS: "detect_leaks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:halt_on_error=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+        run: |
+          if [ -f "build/Release/build/Release/bin/tests/unit_tests" ]; then
+            UNIT_TESTS="build/Release/build/Release/bin/tests/unit_tests"
+          else
+            UNIT_TESTS="build/Release/bin/tests/unit_tests"
+          fi
+          echo "Running: $UNIT_TESTS"
+          "$UNIT_TESTS"
+
+      - name: Run integration tests under ASan + UBSan
+        if: steps.check.outputs.skip != 'true'
+        env:
+          ASAN_OPTIONS: "detect_leaks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:halt_on_error=1"
+          UBSAN_OPTIONS: "print_stacktrace=1:halt_on_error=1"
+        run: |
+          if [ -f "build/Release/build/Release/bin/tests/integration_tests" ]; then
+            INTEGRATION_TESTS="build/Release/build/Release/bin/tests/integration_tests"
+          else
+            INTEGRATION_TESTS="build/Release/bin/tests/integration_tests"
+          fi
+          echo "Running: $INTEGRATION_TESTS"
+          "$INTEGRATION_TESTS"

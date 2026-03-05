@@ -1,0 +1,127 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include "../../src/core/game_validator.h"
+#include "../../src/core/localization_manager.h"
+#include "../../src/core/puzzle_generator.h"
+#include "../../src/core/save_manager.h"
+#include "../../src/core/solving_technique.h"
+#include "../../src/core/statistics_manager.h"
+#include "../../src/core/sudoku_solver.h"
+#include "../../src/view_model/game_view_model.h"
+
+#include <filesystem>
+#include <memory>
+#include <set>
+#include <vector>
+
+#include <catch2/catch_test_macros.hpp>
+
+using namespace sudoku::core;
+using namespace sudoku::viewmodel;
+
+namespace {
+
+/// Compute project root from __FILE__ (tests/unit/test_format_techniques.cpp → project root)
+[[nodiscard]] std::filesystem::path projectRoot() {
+    return std::filesystem::path(__FILE__).parent_path().parent_path().parent_path();
+}
+
+/// Helper to create a minimal GameViewModel for formatTechniques testing.
+/// Uses real LocalizationManager with English locale so formatted output matches expected strings.
+[[nodiscard]] GameViewModel createTestViewModel() {
+    auto validator = std::make_shared<GameValidator>();
+    auto loc_manager = std::make_shared<LocalizationManager>(projectRoot() / "resources" / "locales");
+    [[maybe_unused]] auto result = loc_manager->setLocale("en");
+    return GameViewModel(validator, std::make_shared<PuzzleGenerator>(), std::make_shared<SudokuSolver>(validator),
+                         std::make_shared<StatisticsManager>(), std::make_shared<SaveManager>(), loc_manager);
+}
+
+}  // namespace
+
+TEST_CASE("GameViewModel::formatTechniques - formats technique names for display", "[game_view_model][techniques]") {
+    auto view_model = createTestViewModel();
+
+    SECTION("Empty technique set with no backtracking returns empty vector") {
+        std::set<SolvingTechnique> techniques;
+        auto result = view_model.formatTechniques(techniques, false);
+        REQUIRE(result.empty());
+    }
+
+    SECTION("Single technique returns formatted name with points") {
+        std::set<SolvingTechnique> techniques{SolvingTechnique::NakedSingle};
+        auto result = view_model.formatTechniques(techniques, false);
+        REQUIRE(result.size() == 1);
+        REQUIRE(result[0] == "Naked Single (10 pts)");
+    }
+
+    SECTION("Multiple techniques are sorted by difficulty points ascending") {
+        std::set<SolvingTechnique> techniques{
+            SolvingTechnique::XWing,        // 200 pts
+            SolvingTechnique::NakedSingle,  // 10 pts
+            SolvingTechnique::HiddenPair,   // 70 pts
+        };
+        auto result = view_model.formatTechniques(techniques, false);
+        REQUIRE(result.size() == 3);
+        REQUIRE(result[0] == "Naked Single (10 pts)");
+        REQUIRE(result[1] == "Hidden Pair (70 pts)");
+        REQUIRE(result[2] == "X-Wing (200 pts)");
+    }
+
+    SECTION("Backtracking only (pure backtracking puzzle)") {
+        std::set<SolvingTechnique> techniques;
+        auto result = view_model.formatTechniques(techniques, true);
+        REQUIRE(result.size() == 1);
+        REQUIRE(result[0] == "Backtracking (trial & error)");
+    }
+
+    SECTION("Mixed puzzle: techniques plus backtracking") {
+        std::set<SolvingTechnique> techniques{
+            SolvingTechnique::NakedSingle,   // 10 pts
+            SolvingTechnique::HiddenSingle,  // 15 pts
+        };
+        auto result = view_model.formatTechniques(techniques, true);
+        REQUIRE(result.size() == 3);
+        REQUIRE(result[0] == "Naked Single (10 pts)");
+        REQUIRE(result[1] == "Hidden Single (15 pts)");
+        REQUIRE(result[2] == "Backtracking (trial & error)");
+    }
+
+    SECTION("All logical techniques are formatted correctly") {
+        std::set<SolvingTechnique> techniques{
+            SolvingTechnique::NakedSingle,  SolvingTechnique::HiddenSingle,
+            SolvingTechnique::NakedPair,    SolvingTechnique::NakedTriple,
+            SolvingTechnique::HiddenPair,   SolvingTechnique::HiddenTriple,
+            SolvingTechnique::PointingPair, SolvingTechnique::BoxLineReduction,
+            SolvingTechnique::NakedQuad,    SolvingTechnique::HiddenQuad,
+            SolvingTechnique::XWing,        SolvingTechnique::XYWing,
+        };
+        auto result = view_model.formatTechniques(techniques, false);
+        REQUIRE(result.size() == 12);
+        REQUIRE(result[0] == "Naked Single (10 pts)");
+        REQUIRE(result[11] == "XY-Wing (200 pts)");
+    }
+
+    SECTION("Techniques with same points maintain stable order") {
+        std::set<SolvingTechnique> techniques{
+            SolvingTechnique::PointingPair,      // 100 pts
+            SolvingTechnique::BoxLineReduction,  // 100 pts
+        };
+        auto result = view_model.formatTechniques(techniques, false);
+        REQUIRE(result.size() == 2);
+        // Both have 100 pts - stable sort preserves input order
+    }
+}

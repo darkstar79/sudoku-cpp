@@ -1,0 +1,238 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include "../core/i_game_validator.h"
+#include "../core/i_localization_manager.h"
+#include "../core/i_puzzle_generator.h"
+#include "../core/i_save_manager.h"
+#include "../core/i_statistics_manager.h"
+#include "../core/i_sudoku_solver.h"
+#include "../core/observable.h"
+#include "../core/string_keys.h"
+#include "../model/game_state.h"
+
+#include <functional>
+#include <memory>
+#include <set>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <fmt/format.h>
+
+namespace sudoku::viewmodel {
+
+/// Commands that can be executed from the UI
+enum class GameCommand : std::uint8_t {
+    NewGame,
+    SaveGame,
+    LoadGame,
+    Undo,
+    Redo,
+    GetHint,
+    ValidateBoard,
+    PauseGame,
+    ResumeGame,
+    ResetGame,
+    ShowStatistics,
+    ToggleNotes,
+    ClearNotes,
+    HighlightNumber,
+    ClearHighlights,
+    ToggleAutoNotes
+};
+
+/// UI state information
+struct UIState {
+    bool is_game_active{false};
+    bool is_paused{false};
+    bool is_complete{false};
+    bool notes_mode{false};
+    bool show_conflicts{true};
+    bool show_hints{true};
+    bool auto_notes_enabled{false};
+    std::string status_message;
+    std::string time_display;
+    int puzzle_rating{0};                        // Sudoku Explainer rating (0-2000+ scale)
+    std::vector<std::string> puzzle_techniques;  // Technique names required to solve puzzle
+
+    bool operator==(const UIState& other) const = default;
+};
+
+/// Statistics display data
+struct StatsDisplay {
+    int games_played{0};
+    int games_completed{0};
+    double completion_rate{0.0};
+    std::string best_time;
+    std::string average_time;
+    int current_streak{0};
+    int best_streak{0};
+
+    bool operator==(const StatsDisplay& other) const = default;
+};
+
+/// Main ViewModel for the Sudoku game following MVVM pattern
+class GameViewModel {
+public:
+    /// Constructor with dependency injection
+    GameViewModel(std::shared_ptr<core::IGameValidator> validator, std::shared_ptr<core::IPuzzleGenerator> generator,
+                  std::shared_ptr<core::ISudokuSolver> solver, std::shared_ptr<core::IStatisticsManager> stats_manager,
+                  std::shared_ptr<core::ISaveManager> save_manager,
+                  std::shared_ptr<core::ILocalizationManager> loc_manager);
+
+    ~GameViewModel() = default;
+    GameViewModel(const GameViewModel&) = delete;
+    GameViewModel& operator=(const GameViewModel&) = delete;
+    GameViewModel(GameViewModel&&) = delete;
+    GameViewModel& operator=(GameViewModel&&) = delete;
+
+    // Observable properties for UI binding
+    // Public per MVVM convention: View subscribes and reads, only ViewModel
+    // methods mutate. Encapsulation is enforced by convention, not the type system.
+    core::Observable<model::GameState> gameState;
+    core::Observable<UIState> uiState;
+    core::Observable<StatsDisplay> statistics;
+    core::Observable<std::vector<std::string>> recentSaves;
+    core::Observable<std::string> errorMessage;
+    core::Observable<std::string> hintMessage;  // Educational hint explanation
+
+    // Technique formatting (public for testability)
+    [[nodiscard]] std::vector<std::string> formatTechniques(const std::set<core::SolvingTechnique>& techniques,
+                                                            bool requires_backtracking) const;
+
+    // Game operations
+    void startNewGame(core::Difficulty difficulty);
+    void resetGame();
+    void loadGame(const std::string& save_id);
+    void restoreGameState(const core::SavedGame& saved_game);
+    [[nodiscard]] bool saveCurrentGame(const std::string& name = "");
+    void autoSave();
+
+    // Board interactions
+    void selectCell(size_t row, size_t col);
+    void selectCell(const core::Position& pos);
+    void enterNumber(int number);
+    void enterNote(int number);
+    void clearCell();
+    void clearSelectedCell();
+
+    // Game commands
+    void executeCommand(GameCommand command);
+    [[nodiscard]] bool canExecuteCommand(GameCommand command) const;
+
+    // Undo/Redo operations
+    void undo();
+    void redo();
+    void undoToLastValid();
+    [[nodiscard]] bool canUndo() const;
+    [[nodiscard]] bool canRedo() const;
+
+    // Hint system
+    void getHint();
+    [[nodiscard]] int getHintCount() const;
+
+    // Game state queries
+    [[nodiscard]] bool isGameActive() const;
+    [[nodiscard]] bool isGameComplete() const;
+    [[nodiscard]] bool isGamePaused() const;
+    [[nodiscard]] bool isGameStateDirty() const;
+    [[nodiscard]] std::string getFormattedTime() const;
+    [[nodiscard]] int getMoveCount() const;
+    [[nodiscard]] int getMistakeCount() const;
+    void checkSolution();
+
+    // Settings and preferences
+    void setNotesMode(bool enabled);
+    void setShowConflicts(bool show);
+    void setShowHints(bool show);
+    void toggleNotesMode();
+    void setAutoNotesEnabled(bool enabled);
+    void toggleAutoNotes();
+    [[nodiscard]] bool isAutoNotesEnabled() const;
+
+    // Statistics
+    void refreshStatistics();
+    void refreshRecentSaves();
+    void exportStatistics(const std::string& file_path);
+
+    // CSV Export
+    [[nodiscard]] std::expected<void, std::string> exportAggregateStatsCsv() const;
+    [[nodiscard]] std::expected<void, std::string> exportGameSessionsCsv() const;
+
+    // Error handling
+    void clearErrorMessage();
+    [[nodiscard]] bool hasError() const;
+
+private:
+    // Dependencies
+    std::shared_ptr<core::IGameValidator> validator_;
+    std::shared_ptr<core::IPuzzleGenerator> generator_;
+    std::shared_ptr<core::ISudokuSolver> solver_;
+    std::shared_ptr<core::IStatisticsManager> stats_manager_;
+    std::shared_ptr<core::ISaveManager> save_manager_;
+    std::shared_ptr<core::ILocalizationManager> loc_manager_;
+
+    // Localization helpers
+    [[nodiscard]] const char* loc(std::string_view key) const {
+        return loc_manager_->getString(key);
+    }
+
+    template <typename... Args>
+    [[nodiscard]] std::string locFormat(std::string_view key, Args&&... args) const {
+        return fmt::format(fmt::runtime(loc_manager_->getString(key)), std::forward<Args>(args)...);
+    }
+
+    // Internal state
+    uint64_t current_game_session_{0};
+    std::vector<core::Move> move_history_;
+    int move_history_index_{-1};
+    int last_valid_state_index_{-1};  // Index of last conflict-free board state
+    bool auto_save_enabled_{true};
+    int current_puzzle_rating_{0};  // Rating of current puzzle (Sudoku Explainer scale)
+    std::set<core::SolvingTechnique> current_puzzle_techniques_;
+    bool current_puzzle_requires_backtracking_{false};
+
+    // Private methods
+    void validateCurrentBoard();
+    void updateUIState();
+    void updateTimeDisplay();
+    void startGameSession();
+    void endGameSession(bool completed);
+    void recordMove(const core::Move& move, bool is_mistake = false);
+    void applyMove(const core::Move& move);
+    void revertMove(const core::Move& move);
+    static void cleanupConflictingNotes(model::GameState& state, const core::Position& pos, int number);
+    static void restoreConflictingNotes(model::GameState& state, const core::Position& pos, int number);
+    void checkGameCompletion();
+    void handleError(const std::string& message);
+    [[nodiscard]] static std::string formatTime(std::chrono::milliseconds time);
+    void autoSaveIfNeeded();
+    void recomputeAutoNotes();
+    void updateConflictHighlighting();
+
+    // Hint system helpers
+    [[nodiscard]] std::string formatHintExplanation(const core::SolveStep& step) const;
+    [[nodiscard]] std::string statisticsErrorToString(core::StatisticsError error) const;
+
+    // Statistics helpers
+    [[nodiscard]] static StatsDisplay createStatsDisplay(const core::AggregateStats& stats);
+    void updateStatisticsDisplay();
+};
+
+}  // namespace sudoku::viewmodel

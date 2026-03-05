@@ -1,0 +1,255 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include "../../src/core/game_validator.h"
+#include "../../src/core/mock_localization_manager.h"
+#include "../../src/core/puzzle_generator.h"
+#include "../../src/core/save_manager.h"
+#include "../../src/core/statistics_manager.h"
+#include "../../src/core/sudoku_solver.h"
+#include "../../src/view_model/game_view_model.h"
+
+#include <filesystem>
+#include <memory>
+
+#include <catch2/catch_test_macros.hpp>
+
+using namespace sudoku;
+using namespace sudoku::viewmodel;
+using namespace sudoku::core;
+
+struct ConflictTestFixture {
+    std::shared_ptr<IGameValidator> validator;
+    std::shared_ptr<IPuzzleGenerator> generator;
+    std::shared_ptr<ISudokuSolver> solver;
+    std::shared_ptr<ISaveManager> save_manager;
+    std::shared_ptr<IStatisticsManager> stats_manager;
+    std::unique_ptr<GameViewModel> view_model;
+    std::string test_dir;
+
+    ConflictTestFixture()
+        : test_dir("./test_conflicts_" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count())) {
+        validator = std::make_shared<GameValidator>();
+        generator = std::make_shared<PuzzleGenerator>();
+        solver = std::make_shared<SudokuSolver>(validator);
+        save_manager = std::make_shared<SaveManager>(test_dir);
+        stats_manager = std::make_shared<StatisticsManager>(test_dir);
+        view_model = std::make_unique<GameViewModel>(validator, generator, solver, stats_manager, save_manager,
+                                                     std::make_shared<MockLocalizationManager>());
+    }
+
+    ~ConflictTestFixture() {
+        std::filesystem::remove_all(test_dir);
+    }
+
+    // Find two empty cells in the same row. Returns {cell_a, cell_b, value_to_place}.
+    // The value chosen does not conflict with any given cell in that row.
+    struct ConflictSetup {
+        Position cell_a;
+        Position cell_b;
+        int value;
+    };
+
+    // Find two empty cells in the same row where a value is valid for cell_a
+    // but placing it in cell_b creates a row conflict (the ONLY conflict).
+    [[nodiscard]] std::optional<ConflictSetup> findTwoEmptyCellsSameRow() const {
+        const auto& state = view_model->gameState.get();
+        auto board = state.extractNumbers();
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            std::vector<size_t> empty_cols;
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (state.getCell(row, col).value == 0) {
+                    empty_cols.push_back(col);
+                }
+            }
+            if (empty_cols.size() >= 2) {
+                // Find a value that is valid for cell_a (no conflicts anywhere)
+                Position cell_a{.row = row, .col = empty_cols[0]};
+                auto possible_a = validator->getPossibleValues(board, cell_a);
+                for (int val : possible_a) {
+                    return ConflictSetup{.cell_a = cell_a, .cell_b = {.row = row, .col = empty_cols[1]}, .value = val};
+                }
+            }
+        }
+        return std::nullopt;
+    }
+};
+
+TEST_CASE("GameViewModel - Conflict Highlighting", "[game_view_model][conflicts]") {
+    ConflictTestFixture fixture;
+    fixture.view_model->startNewGame(Difficulty::Easy);
+
+    SECTION("Placing a conflicting number marks cells as conflicting") {
+        auto setup = fixture.findTwoEmptyCellsSameRow();
+        REQUIRE(setup.has_value());
+
+        // Place same value in two cells of the same row
+        fixture.view_model->selectCell(setup->cell_a);
+        fixture.view_model->enterNumber(setup->value);
+
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->enterNumber(setup->value);
+
+        // Both cells should be marked as conflicting
+        const auto& state = fixture.view_model->gameState.get();
+        REQUIRE(state.getCell(setup->cell_a).has_conflict);
+        REQUIRE(state.getCell(setup->cell_b).has_conflict);
+    }
+
+    SECTION("Placing a valid number does not create conflict highlighting") {
+        const auto& state = fixture.view_model->gameState.get();
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (state.getCell(row, col).value == 0) {
+                    Position pos{row, col};
+                    auto possible = fixture.validator->getPossibleValues(state.extractNumbers(), pos);
+                    if (!possible.empty()) {
+                        fixture.view_model->selectCell(pos);
+                        fixture.view_model->enterNumber(possible[0]);
+
+                        const auto& after = fixture.view_model->gameState.get();
+                        REQUIRE_FALSE(after.getCell(pos).has_conflict);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    SECTION("Undoing a conflicting move clears conflict highlighting") {
+        auto setup = fixture.findTwoEmptyCellsSameRow();
+        REQUIRE(setup.has_value());
+
+        // Create a conflict
+        fixture.view_model->selectCell(setup->cell_a);
+        fixture.view_model->enterNumber(setup->value);
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->enterNumber(setup->value);
+
+        // Verify conflict exists
+        REQUIRE(fixture.view_model->gameState.get().getCell(setup->cell_b).has_conflict);
+
+        // Undo the second placement
+        fixture.view_model->undo();
+
+        // Conflict should be cleared
+        const auto& state = fixture.view_model->gameState.get();
+        REQUIRE_FALSE(state.getCell(setup->cell_a).has_conflict);
+    }
+
+    SECTION("Redoing a conflicting move restores conflict highlighting") {
+        auto setup = fixture.findTwoEmptyCellsSameRow();
+        REQUIRE(setup.has_value());
+
+        // Create a conflict
+        fixture.view_model->selectCell(setup->cell_a);
+        fixture.view_model->enterNumber(setup->value);
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->enterNumber(setup->value);
+
+        // Undo then redo
+        fixture.view_model->undo();
+        REQUIRE_FALSE(fixture.view_model->gameState.get().getCell(setup->cell_a).has_conflict);
+
+        fixture.view_model->redo();
+
+        // Conflict should be restored
+        const auto& state = fixture.view_model->gameState.get();
+        REQUIRE(state.getCell(setup->cell_a).has_conflict);
+        REQUIRE(state.getCell(setup->cell_b).has_conflict);
+    }
+
+    SECTION("Clearing a conflicting cell removes conflict highlighting") {
+        auto setup = fixture.findTwoEmptyCellsSameRow();
+        REQUIRE(setup.has_value());
+
+        // Create a conflict
+        fixture.view_model->selectCell(setup->cell_a);
+        fixture.view_model->enterNumber(setup->value);
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->enterNumber(setup->value);
+
+        REQUIRE(fixture.view_model->gameState.get().getCell(setup->cell_a).has_conflict);
+
+        // Clear the second cell
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->clearSelectedCell();
+
+        // Conflict should be cleared for both cells
+        const auto& state = fixture.view_model->gameState.get();
+        REQUIRE_FALSE(state.getCell(setup->cell_a).has_conflict);
+        REQUIRE_FALSE(state.getCell(setup->cell_b).has_conflict);
+    }
+}
+
+TEST_CASE("GameViewModel - Mistake Counter", "[game_view_model][mistakes]") {
+    ConflictTestFixture fixture;
+    fixture.view_model->startNewGame(Difficulty::Easy);
+
+    SECTION("Mistake count increments when placing conflicting number") {
+        auto setup = fixture.findTwoEmptyCellsSameRow();
+        REQUIRE(setup.has_value());
+
+        REQUIRE(fixture.view_model->getMistakeCount() == 0);
+
+        // First placement is not a mistake (no conflict)
+        fixture.view_model->selectCell(setup->cell_a);
+        fixture.view_model->enterNumber(setup->value);
+        REQUIRE(fixture.view_model->getMistakeCount() == 0);
+
+        // Second placement creates a conflict - this is a mistake
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->enterNumber(setup->value);
+        REQUIRE(fixture.view_model->getMistakeCount() == 1);
+    }
+
+    SECTION("Mistake count does not increment for valid placements") {
+        const auto& state = fixture.view_model->gameState.get();
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (state.getCell(row, col).value == 0) {
+                    Position pos{row, col};
+                    auto possible = fixture.validator->getPossibleValues(state.extractNumbers(), pos);
+                    if (!possible.empty()) {
+                        fixture.view_model->selectCell(pos);
+                        fixture.view_model->enterNumber(possible[0]);
+
+                        REQUIRE(fixture.view_model->getMistakeCount() == 0);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    SECTION("Undoing a mistake does not decrement mistake count") {
+        auto setup = fixture.findTwoEmptyCellsSameRow();
+        REQUIRE(setup.has_value());
+
+        // Create a mistake
+        fixture.view_model->selectCell(setup->cell_a);
+        fixture.view_model->enterNumber(setup->value);
+        fixture.view_model->selectCell(setup->cell_b);
+        fixture.view_model->enterNumber(setup->value);
+        REQUIRE(fixture.view_model->getMistakeCount() == 1);
+
+        // Undo the mistake
+        fixture.view_model->undo();
+
+        // Mistake count should NOT decrement (total mistakes made)
+        REQUIRE(fixture.view_model->getMistakeCount() == 1);
+    }
+}

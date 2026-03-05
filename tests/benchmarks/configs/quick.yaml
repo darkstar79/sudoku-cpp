@@ -1,0 +1,18 @@
+# Quick smoke test configuration (based on benchmark_phase3_quick.cpp)
+# Fast validation that generation works (not for performance analysis)
+#
+# Usage:
+#   ./bin/benchmarks/puzzle_generation_benchmark --config tests/benchmarks/configs/quick.yaml
+
+benchmarks:
+  - name: "Quick Hard"
+    difficulty: Hard
+    iterations: 5
+    max_attempts: 200
+    verbose: true
+
+  - name: "Quick Expert"
+    difficulty: Expert
+    iterations: 5
+    max_attempts: 1000
+    verbose: true

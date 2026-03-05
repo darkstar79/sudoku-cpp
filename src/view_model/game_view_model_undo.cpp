@@ -1,0 +1,285 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include "../core/string_keys.h"
+#include "core/board_utils.h"
+#include "game_view_model.h"
+
+#include <fmt/format.h>
+#include <spdlog/spdlog.h>
+
+namespace sudoku::viewmodel {
+
+void GameViewModel::undo() {
+    if (!canUndo()) {
+        return;
+    }
+
+    // Skip over hint moves - they can't be undone
+    while (move_history_index_ >= 0) {
+        const auto& move = move_history_[move_history_index_];
+
+        if (move.move_type != core::MoveType::PlaceHint) {
+            // Regular move - undo it
+            revertMove(move);
+            move_history_index_--;
+            updateConflictHighlighting();
+            updateUIState();
+            spdlog::debug("Move undone");
+            return;
+        }
+
+        // Skip hint move
+        move_history_index_--;
+        spdlog::debug("Skipped hint move during undo");
+    }
+
+    // If we get here, all remaining moves were hints
+    updateUIState();
+}
+
+void GameViewModel::redo() {
+    if (!canRedo()) {
+        return;
+    }
+
+    move_history_index_++;
+    const auto& move = move_history_[move_history_index_];
+    applyMove(move);
+    updateConflictHighlighting();
+
+    updateUIState();
+    spdlog::debug("Move redone");
+}
+
+void GameViewModel::undoToLastValid() {
+    // Check if we have a recorded valid state
+    if (last_valid_state_index_ < 0) {
+        uiState.update([this](auto& ui) { ui.status_message = loc(core::StringKeys::StatusNoValidState); });
+        return;
+    }
+
+    // Get current board state
+    auto board = gameState.get().extractNumbers();
+
+    // Check if current state has conflicts
+    auto conflicts = validator_->findConflicts(board);
+    bool hasErrors = !conflicts.empty();
+
+    // If no errors, nothing to do
+    if (!hasErrors) {
+        uiState.update([this](auto& ui) { ui.status_message = loc(core::StringKeys::StatusBoardValid); });
+        return;
+    }
+
+    // Undo to the last known valid state
+    while (move_history_index_ > last_valid_state_index_) {
+        undo();
+    }
+
+    uiState.update([this](auto& ui) { ui.status_message = loc(core::StringKeys::StatusUndoneToValid); });
+}
+
+bool GameViewModel::canUndo() const {
+    return move_history_index_ >= 0;
+}
+
+bool GameViewModel::canRedo() const {
+    return move_history_index_ < static_cast<int>(move_history_.size()) - 1;
+}
+
+void GameViewModel::checkSolution() {
+    // Get current board state
+    auto board = gameState.get().extractNumbers();
+
+    if (validator_->isComplete(board)) {
+        // Store current difficulty and time before ending session
+        const auto& state = gameState.get();
+        auto completed_difficulty = state.getDifficulty();
+        auto completion_time = state.getElapsedTime();
+
+        // Mark game as complete
+        gameState.update([](model::GameState& state) { state.setComplete(true); });
+
+        // End game session in statistics
+        endGameSession(true);
+
+        // Log completion
+        spdlog::info("Puzzle completed! Time: {}ms. Auto-starting new game at same difficulty...",
+                     completion_time.count());
+
+        // Auto-start new game at same difficulty
+        startNewGame(completed_difficulty);
+
+        // Update UI with completion message
+        uiState.update([this, &completion_time](auto& ui) {
+            auto minutes = std::chrono::duration_cast<std::chrono::minutes>(completion_time);
+            auto seconds = std::chrono::duration_cast<std::chrono::seconds>(completion_time - minutes);
+            ui.status_message =
+                locFormat(core::StringKeys::StatusPuzzleCompleted, fmt::format("{:02d}", minutes.count()),
+                          fmt::format("{:02d}", seconds.count()));
+        });
+
+        spdlog::info("New game started automatically at same difficulty");
+    } else {
+        // Find and mark conflicts
+        auto conflicts = validator_->findConflicts(board);
+
+        gameState.update([&conflicts](model::GameState& state) {
+            // Clear previous conflicts
+            core::forEachCell([&](size_t row, size_t col) { state.getBoard()[row][col].has_conflict = false; });
+
+            // Mark new conflicts
+            for (const auto& pos : conflicts) {
+                if (!state.getBoard()[pos.row][pos.col].is_given) {
+                    state.getBoard()[pos.row][pos.col].has_conflict = true;
+                }
+            }
+        });
+
+        uiState.update([this](auto& ui) { ui.status_message = loc(core::StringKeys::StatusSolutionErrors); });
+    }
+}
+
+void GameViewModel::recordMove(const core::Move& move, bool is_mistake) {
+    // Add to history (truncate any redo moves)
+    if (move_history_index_ + 1 < static_cast<int>(move_history_.size())) {
+        move_history_.erase(move_history_.begin() + (move_history_index_ + 1), move_history_.end());
+    }
+    move_history_.push_back(move);
+    move_history_index_ = static_cast<int>(move_history_.size()) - 1;
+
+    // Track last valid state and update conflict highlighting
+    auto board = gameState.get().extractNumbers();
+    auto conflicts = validator_->findConflicts(board);
+    if (conflicts.empty()) {
+        last_valid_state_index_ = move_history_index_;
+    }
+
+    gameState.update([&conflicts, is_mistake](model::GameState& state) {
+        state.updateConflicts(conflicts);
+        if (is_mistake) {
+            state.incrementMistakes();
+        }
+    });
+
+    // Record in statistics
+    if (current_game_session_ > 0) {
+        auto record_result = stats_manager_->recordMove(current_game_session_, is_mistake);
+        if (!record_result) {
+            spdlog::warn("Failed to record move: {}", statisticsErrorToString(record_result.error()));
+        }
+    }
+}
+
+void GameViewModel::applyMove(const core::Move& move) {
+    bool auto_notes = isAutoNotesEnabled();
+    gameState.update([this, &move, auto_notes](model::GameState& state) {
+        auto& cell = state.getCell(move.position);
+        switch (move.move_type) {
+            case core::MoveType::PlaceNumber:
+                cell.value = move.value;
+                if (!auto_notes) {
+                    state.clearNotes(move.position);
+                    cleanupConflictingNotes(state, move.position, move.value);
+                }
+                break;
+            case core::MoveType::RemoveNumber:
+                cell.value = 0;
+                break;
+            case core::MoveType::AddNote:
+                if (!auto_notes) {
+                    state.addNote(move.position, move.value);
+                }
+                break;
+            case core::MoveType::RemoveNote:
+                if (!auto_notes) {
+                    state.removeNote(move.position, move.value);
+                }
+                break;
+            case core::MoveType::PlaceHint:
+                cell.value = move.value;
+                cell.is_hint_revealed = true;
+                if (!auto_notes) {
+                    state.clearNotes(move.position);
+                    cleanupConflictingNotes(state, move.position, move.value);
+                }
+                state.incrementMoves();  // Count hint as a move
+                break;
+            default:
+                break;
+        }
+    });
+
+    if (auto_notes) {
+        recomputeAutoNotes();
+    }
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) — undo logic with note/value branching; nesting is inherent
+void GameViewModel::revertMove(const core::Move& move) {
+    bool auto_notes = isAutoNotesEnabled();
+    gameState.update([this, &move, auto_notes](model::GameState& state) {
+        auto& cell = state.getCell(move.position);
+        switch (move.move_type) {
+            case core::MoveType::PlaceNumber:
+                cell.value = move.previous_value;
+                cell.is_hint_revealed = move.previous_hint_revealed;
+                if (!auto_notes) {
+                    cell.notes = move.previous_notes;
+                    if (move.value != 0) {
+                        restoreConflictingNotes(state, move.position, move.value);
+                    }
+                }
+                break;
+            case core::MoveType::RemoveNumber:
+                cell.value = move.previous_value;
+                cell.is_hint_revealed = move.previous_hint_revealed;
+                if (!auto_notes) {
+                    cell.notes = move.previous_notes;
+                    if (move.previous_value != 0) {
+                        cleanupConflictingNotes(state, move.position, move.previous_value);
+                    }
+                }
+                break;
+            case core::MoveType::AddNote:
+            case core::MoveType::RemoveNote:
+                if (!auto_notes) {
+                    cell.notes = move.previous_notes;
+                }
+                break;
+            case core::MoveType::PlaceHint:
+                cell.value = move.previous_value;
+                cell.is_hint_revealed = move.previous_hint_revealed;
+                if (!auto_notes) {
+                    cell.notes = move.previous_notes;
+                    if (move.value != 0) {
+                        restoreConflictingNotes(state, move.position, move.value);
+                    }
+                }
+                spdlog::warn("Attempted to revert hint move - hints should not be undoable!");
+                break;
+            default:
+                break;
+        }
+    });
+
+    if (auto_notes) {
+        recomputeAutoNotes();
+    }
+}
+
+}  // namespace sudoku::viewmodel

@@ -1,0 +1,10 @@
+# Test-specific clang-tidy overrides — inherits all parent settings.
+# Suppresses checks that produce unavoidable false positives in Catch2 test code.
+
+InheritParentConfig: true
+
+Checks: '
+  -bugprone-chained-comparison,
+  -bugprone-unchecked-optional-access,
+  -cert-err58-cpp
+'

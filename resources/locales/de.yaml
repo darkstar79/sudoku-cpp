@@ -1,0 +1,259 @@
+locale: de
+name: Deutsch
+
+strings:
+  # Menü
+  menu.game: "Spiel"
+  menu.new_game: "Neues Spiel"
+  menu.reset_puzzle: "Rätsel zurücksetzen"
+  menu.save: "Speichern"
+  menu.load: "Laden"
+  menu.statistics: "Statistiken"
+  menu.export_aggregate: "Gesamtstatistiken als CSV exportieren"
+  menu.export_sessions: "Spielsitzungen als CSV exportieren"
+  menu.exit: "Beenden"
+  menu.edit: "Bearbeiten"
+  menu.undo: "Rückgängig"
+  menu.redo: "Wiederherstellen"
+  menu.clear_cell: "Zelle leeren"
+  menu.help: "Hilfe"
+  menu.get_hint: "Hinweis anzeigen"
+  menu.about: "Über"
+
+  # Werkzeugleiste
+  toolbar.new_game: "\u25b6 Neues Spiel"
+  toolbar.difficulty: "Schwierigkeit:"
+  toolbar.hints: "Hinweise:"
+  toolbar.rating: "Bewertung:"
+  toolbar.help_icon: "[?]"
+
+  # Schwierigkeitsgrade
+  difficulty.easy: "Leicht"
+  difficulty.medium: "Mittel"
+  difficulty.hard: "Schwer"
+  difficulty.expert: "Experte"
+  difficulty.master: "Meister"
+  difficulty.unknown: "Unbekannt"
+
+  # Aktionsschaltflächen
+  button.check_solution: "Lösung prüfen"
+  button.reset_puzzle: "Rätsel zurücksetzen"
+  button.undo: "Rückgängig"
+  button.redo: "Wiederherstellen"
+  button.undo_to_valid: "Bis gültig rückgängig"
+  button.auto_notes_on: "Auto-Notizen: EIN"
+  button.auto_notes_off: "Auto-Notizen: AUS"
+
+  # Statusleiste
+  status.completed: "Abgeschlossen!"
+  status.playing: "Spielen"
+  status.ready: "Bereit"
+  status.press_f1: "F1 drücken für Menü"
+  status.in_progress: "In Bearbeitung"
+
+  # Spielfeld
+  board.no_game_loaded: "Kein Spiel geladen. Starte ein neues Spiel!"
+
+  # Dialoge — Neues Spiel
+  dialog.new_game: "Neues Spiel"
+  dialog.select_difficulty: "Schwierigkeit auswählen:"
+  dialog.start_game: "Spiel starten"
+  dialog.cancel: "Abbrechen"
+
+  # Dialoge — Zurücksetzen
+  dialog.reset_puzzle: "Rätsel zurücksetzen"
+  dialog.reset_warning: "Aller Fortschritt bei diesem Rätsel geht verloren, einschließlich eingetragener Zahlen, Notizen und Hinweise. Der Timer wird neu gestartet."
+  dialog.reset: "Zurücksetzen"
+
+  # Dialoge — Speichern
+  dialog.save_game: "Spiel speichern"
+  dialog.enter_save_name: "Speichername eingeben:"
+  dialog.save: "Speichern"
+
+  # Dialoge — Laden
+  dialog.load_game: "Spiel laden"
+  dialog.recent_saves: "Letzte Speicherstände:"
+
+  # Dialoge — Statistiken (parametrisiert mit fmt-Stil {0})
+  dialog.statistics: "Statistiken"
+  dialog.close: "Schließen"
+  stats.games_played: "Gespielte Spiele: {0}"
+  stats.games_completed: "Abgeschlossene Spiele: {0}"
+  stats.completion_rate: "Abschlussrate: {0:.1f}%"
+  stats.best_time: "Beste Zeit: {0}"
+  stats.average_time: "Durchschnittliche Zeit: {0}"
+  stats.current_streak: "Aktuelle Serie: {0}"
+  stats.best_streak: "Beste Serie: {0}"
+
+  # Dialoge — Über
+  dialog.about: "Über"
+  about.sudoku_game: "Sudoku-Spiel"
+  about.phase_info: "Phase 1 abgeschlossen – MVVM-Architektur"
+  about.built_with: "Erstellt mit:"
+
+  # Tooltips — Bewertungsskala
+  tooltip.rating_scale: "Sudoku-Explainer-Bewertungsskala:"
+  tooltip.techniques_required: "Benötigte Techniken:"
+
+  # Toast-Benachrichtigungen
+  toast.game_saved: "Spiel erfolgreich gespeichert"
+  toast.aggregate_exported: "Gesamtstatistiken als CSV exportiert"
+  toast.sessions_exported: "Spielsitzungen als CSV exportiert"
+  toast.export_failed: "Export fehlgeschlagen: {0}"
+
+  # Seitenleiste
+  sidebar.difficulty: "Schwierigkeit: {0}"
+  sidebar.rating: "Bewertung: {0}"
+  sidebar.language: "Sprache"
+
+  # ViewModel — Fehlermeldungen
+  error.generate_puzzle: "Rätsel konnte nicht generiert werden"
+  error.load_game: "Spiel konnte nicht geladen werden"
+  error.no_active_game: "Kein aktives Spiel zum Speichern"
+  error.save_game: "Spiel konnte nicht gespeichert werden"
+  error.export_stats: "Statistiken konnten nicht exportiert werden"
+  error.export_aggregate: "Gesamtstatistiken konnten nicht exportiert werden"
+  error.export_sessions: "Spielsitzungen konnten nicht exportiert werden"
+  error.file_access: "Dateizugriffsfehler"
+  error.serialization: "Serialisierungsfehler"
+  error.unknown: "Unbekannter Fehler"
+
+  # ViewModel — Statusmeldungen
+  status.no_valid_state: "Kein gültiger Zustand im Verlauf"
+  status.board_valid: "Spielfeld ist bereits gültig"
+  status.undone_to_valid: "Zum letzten gültigen Zustand zurückgesetzt"
+  status.puzzle_completed: "Rätsel gelöst in {0}:{1}! Neues Spiel gestartet."
+  status.solution_errors: "Lösung enthält Fehler. Weiter versuchen!"
+
+  # ViewModel — Hinweismeldungen
+  hint.no_remaining: "Keine Hinweise übrig (0/10 verwendet)"
+  hint.select_cell: "Bitte wähle zuerst eine Zelle aus"
+  hint.cannot_reveal_given: "Kein Hinweis für vorgegebene Zellen möglich"
+  hint.cell_has_value: "Zelle hat bereits einen Wert"
+  hint.no_technique: "Keine logische Technik für dieses Rätsel gefunden"
+  hint.suggestion_place: "Vorschlag: Setze {0} bei R{1}C{2}"
+
+  # ViewModel — Technikformatierung
+  technique.points_fmt: "{0} ({1} Pkt.)"
+  technique.backtracking: "Backtracking (Versuch und Irrtum)"
+
+  # ViewModel — Statistikfehler
+  stats_err.invalid_data: "Ungültige Spieldaten"
+  stats_err.file_access: "Dateizugriffsfehler"
+  stats_err.serialization: "Serialisierungsfehler"
+  stats_err.invalid_difficulty: "Ungültige Schwierigkeit"
+  stats_err.game_not_started: "Spiel nicht gestartet"
+  stats_err.game_already_ended: "Spiel bereits beendet"
+  stats_err.unknown: "Unbekannter Statistikfehler"
+
+  # Techniknamen
+  tech.naked_single: "Nackter Einzelner"
+  tech.hidden_single: "Versteckter Einzelner"
+  tech.naked_pair: "Nacktes Paar"
+  tech.naked_triple: "Nacktes Tripel"
+  tech.hidden_pair: "Verstecktes Paar"
+  tech.hidden_triple: "Verstecktes Tripel"
+  tech.pointing_pair: "Zeigepaar"
+  tech.box_line_reduction: "Block-Zeilen-Reduktion"
+  tech.naked_quad: "Nacktes Quartett"
+  tech.hidden_quad: "Verstecktes Quartett"
+  tech.x_wing: "X-Wing"
+  tech.xy_wing: "XY-Wing"
+  tech.swordfish: "Schwertfisch"
+  tech.skyscraper: "Wolkenkratzer"
+  tech.two_string_kite: "Zweidraht-Drachen"
+  tech.xyz_wing: "XYZ-Wing"
+  tech.unique_rectangle: "Eindeutiges Rechteck"
+  tech.w_wing: "W-Wing"
+  tech.simple_coloring: "Einfache Färbung"
+  tech.finned_x_wing: "X-Wing mit Flosse"
+  tech.remote_pairs: "Entfernte Paare"
+  tech.bug: "BUG"
+  tech.jellyfish: "Qualle"
+  tech.finned_swordfish: "Schwertfisch mit Flosse"
+  tech.empty_rectangle: "Leeres Rechteck"
+  tech.wxyz_wing: "WXYZ-Wing"
+  tech.finned_jellyfish: "Qualle mit Flosse"
+  tech.xy_chain: "XY-Kette"
+  tech.multi_coloring: "Mehrfach-Färbung"
+  tech.als_xz: "ALS-XZ"
+  tech.sue_de_coq: "Sue de Coq"
+  tech.forcing_chain: "Forcing Chain"
+  tech.nice_loop: "Nice Loop"
+  tech.x_cycles: "X-Zyklen"
+  tech.three_d_medusa: "3D Medusa"
+  tech.hidden_unique_rectangle: "Verstecktes Eindeutiges Rechteck"
+  tech.avoidable_rectangle: "Vermeidbares Rechteck"
+  tech.als_xy_wing: "ALS-XY-Wing"
+  tech.death_blossom: "Todesblüte"
+  tech.vwxyz_wing: "VWXYZ-Wing"
+  tech.franken_fish: "Franken-Fisch"
+  tech.grouped_x_cycles: "Gruppierte X-Zyklen"
+  tech.backtracking_name: "Backtracking"
+  tech.unknown: "Unbekannte Technik"
+
+  # Regionsnamen
+  region.row: "Zeile"
+  region.column: "Spalte"
+  region.box: "Block"
+  region.unknown: "Unbekannte Region"
+
+  # Positionsformat (Z=Zeile, S=Spalte, 1-indiziert)
+  position.fmt: "Z{0}S{1}"
+
+  # Erklärungsvorlagen
+  explain.naked_single: "Nackter Einzelner bei {0}: nur Wert {1} ist möglich"
+  explain.hidden_single: "Versteckter Einzelner bei {0}: Wert {1} kann nur in dieser Zelle innerhalb seiner Region vorkommen"
+  explain.naked_pair: "Nacktes Paar [{0}] bei {1} in {2} eliminiert Kandidaten aus anderen Zellen"
+  explain.naked_triple: "Nacktes Tripel [{0}] bei {1} in {2} eliminiert Kandidaten aus anderen Zellen"
+  explain.hidden_pair: "Verstecktes Paar [{0}] bei {1} in {2} eliminiert andere Kandidaten aus diesen Zellen"
+  explain.hidden_triple: "Verstecktes Tripel [{0}] bei {1} in {2} eliminiert andere Kandidaten aus diesen Zellen"
+  explain.pointing_pair: "Zeigepaar: {0} in Block {1} beschränkt auf {2} {3} eliminiert {0} aus anderen Zellen in {2} {3}"
+  explain.box_line_reduction: "Block-Zeilen-Reduktion: {0} in {1} {2} beschränkt auf Block {3} eliminiert {0} aus anderen Zellen in Block {3}"
+  explain.naked_quad: "Nacktes Quartett [{0}] bei {1} in {2} eliminiert Kandidaten aus anderen Zellen"
+  explain.hidden_quad: "Verstecktes Quartett [{0}] bei {1} in {2} eliminiert andere Kandidaten aus diesen Zellen"
+  explain.x_wing_row: "X-Wing auf Wert {0} in Zeilen {1} und {2}, Spalten {3} und {4} eliminiert {0} aus anderen Zellen in diesen Spalten"
+  explain.x_wing_col: "X-Wing auf Wert {0} in Spalten {1} und {2}, Zeilen {3} und {4} eliminiert {0} aus anderen Zellen in diesen Zeilen"
+  explain.xy_wing: "XY-Wing: Pivot {0} {{{1},{2}}}, Flügel {3} {{{1},{4}}}, Flügel {5} {{{2},{4}}} eliminiert {4} aus Zellen, die beide Flügel sehen"
+  explain.swordfish_row: "Schwertfisch auf Wert {0} in Zeilen {1}, {2}, {3} und Spalten {4}, {5}, {6} eliminiert {0} aus anderen Zellen in diesen Spalten"
+  explain.swordfish_col: "Schwertfisch auf Wert {0} in Spalten {1}, {2}, {3} und Zeilen {4}, {5}, {6} eliminiert {0} aus anderen Zellen in diesen Zeilen"
+  explain.skyscraper: "Wolkenkratzer auf Wert {0}: konjugierte Paare in {1} und {2} teilen Endpunkt {3} — eliminiert {0} aus Zellen, die beide {4} und {5} sehen"
+  explain.two_string_kite: "Zweidraht-Drachen auf Wert {0}: Zeilenpaar {1},{2} und Spaltenpaar {3},{4} durch gemeinsamen Block verbunden — eliminiert {0} aus Zellen, die beide Endpunkte sehen"
+  explain.xyz_wing: "XYZ-Wing: Pivot {0} {{{1},{2},{3}}}, Flügel {4} und Flügel {5} eliminieren {3} aus Zellen, die alle drei sehen"
+  explain.unique_rectangle: "Eindeutiges Rechteck: Zellen {0} mit Werten {{{1},{2}}} — eliminiert {1},{2} aus {3} um tödliches Muster zu vermeiden"
+  explain.w_wing: "W-Wing: Zellen {0} und {1} {{{2},{3}}} durch starke Verbindung auf {2} verbunden — eliminiert {3} aus Zellen, die beide sehen"
+  explain.simple_coloring_contradiction: "Einfache Färbung auf {0}: gleichfarbige Zellen sehen einander — eliminiert {0} aus allen Zellen dieser Farbe"
+  explain.simple_coloring_exclusion: "Einfache Färbung auf {0}: Zelle {1} sieht beide Farben — eliminiert {0} aus {1}"
+  explain.unique_rectangle_type2: "Eindeutiges Rechteck Typ 2: Zellen {0} mit Werten {{{1},{2}}} — zusätzlicher Kandidat {3} aus Zellen eliminiert, die beide Bodenzellen in gemeinsamer {4} sehen"
+  explain.unique_rectangle_type3: "Eindeutiges Rechteck Typ 3: Zellen {0} mit Werten {{{1},{2}}} — Bodenextras bilden nackte Teilmenge in {3}, eliminiert aus anderen Zellen"
+  explain.unique_rectangle_type4: "Eindeutiges Rechteck Typ 4: Zellen {0} mit Werten {{{1},{2}}} — starke Verbindung auf {3} in {4} eliminiert {5} aus Bodenzellen"
+  explain.finned_x_wing_row: "X-Wing mit Flosse auf Wert {0} in Zeilen {1} und {2}, Spalten {3} und {4} mit Flosse bei {5} — eliminiert {0} aus Zellen im Block der Flosse"
+  explain.finned_x_wing_col: "X-Wing mit Flosse auf Wert {0} in Spalten {1} und {2}, Zeilen {3} und {4} mit Flosse bei {5} — eliminiert {0} aus Zellen im Block der Flosse"
+  explain.remote_pairs: "Entfernte Paare: Kette von {{{0},{1}}}-Zellen von {2} bis {3} (Länge {4}) — eliminiert {0},{1} aus Zellen, die beide Endpunkte sehen"
+  explain.bug: "BUG: alle Zellen bivalent außer {0} — Wert {1} muss gesetzt werden, um tödliches Muster zu vermeiden"
+  explain.jellyfish_row: "Qualle auf Wert {0} in Zeilen {1}, {2}, {3}, {4} und Spalten {5}, {6}, {7}, {8} eliminiert {0} aus anderen Zellen in diesen Spalten"
+  explain.jellyfish_col: "Qualle auf Wert {0} in Spalten {1}, {2}, {3}, {4} und Zeilen {5}, {6}, {7}, {8} eliminiert {0} aus anderen Zellen in diesen Zeilen"
+  explain.finned_swordfish_row: "Schwertfisch mit Flosse auf Wert {0} in Zeilen {1}, {2}, {3} mit Flosse bei {4} — eliminiert {0} aus Zellen im Block der Flosse"
+  explain.finned_swordfish_col: "Schwertfisch mit Flosse auf Wert {0} in Spalten {1}, {2}, {3} mit Flosse bei {4} — eliminiert {0} aus Zellen im Block der Flosse"
+  explain.empty_rectangle: "Leeres Rechteck auf Wert {0}: ER in Block {1} mit konjugiertem Paar in {2} — eliminiert {0} aus {3}"
+  explain.wxyz_wing: "WXYZ-Wing: Pivot {0} mit Flügeln {1}, {2}, {3} — eliminiert {4} aus Zellen, die alle vier sehen"
+  explain.finned_jellyfish_row: "Qualle mit Flosse auf Wert {0} in Zeilen {1}, {2}, {3}, {4} mit Flosse bei {5} — eliminiert {0} aus Zellen im Block der Flosse"
+  explain.finned_jellyfish_col: "Qualle mit Flosse auf Wert {0} in Spalten {1}, {2}, {3}, {4} mit Flosse bei {5} — eliminiert {0} aus Zellen im Block der Flosse"
+  explain.xy_chain: "XY-Kette: Kette von {0} bivalenten Zellen von {1} bis {2} — eliminiert {3} aus Zellen, die beide Endpunkte sehen"
+  explain.multi_coloring_wrap: "Mehrfach-Färbung auf {0}: Farbe sieht beide Farben eines anderen Clusters — eliminiert {0} aus allen Zellen dieser Farbe"
+  explain.multi_coloring_trap: "Mehrfach-Färbung auf {0}: Zelle {1} sieht komplementäre Farben aus zwei Clustern — eliminiert {0}"
+  explain.als_xz: "ALS-XZ: ALS {0} und ALS {1} durch eingeschränkten gemeinsamen Kandidaten {2} verbunden — eliminiert {3} aus Zellen, die beide ALS sehen"
+  explain.sue_de_coq: "Sue de Coq: Kreuzung von {0} und Block {1} — eliminiert Kandidaten aus Rest der Zeile und Block"
+  explain.forcing_chain: "Forcing Chain: Annahme jedes Kandidaten in {0} führt zum gleichen Ergebnis — {1}"
+  explain.nice_loop: "Nice Loop: Alternierende Schlussfolgerungskette von {0} nach {1} — eliminiert {2}"
+  explain.x_cycles_type1: "X-Zyklen auf Wert {0}: geschlossene Schleife — eliminiert {0} aus Zellen, die Endpunkte schwacher Verbindungen sehen"
+  explain.x_cycles_type2: "X-Zyklen auf Wert {0}: stark-stark-Diskontinuität bei {1} — setzt {0}"
+  explain.x_cycles_type3: "X-Zyklen auf Wert {0}: schwach-schwach-Diskontinuität bei {1} — eliminiert {0} aus {1}"
+  explain.three_d_medusa: "3D Medusa: Mehrfach-Ziffer-Färbung — {0}"
+  explain.hidden_unique_rectangle: "Verstecktes Eindeutiges Rechteck: Zellen {0} mit Werten {{{1},{2}}} — eliminiert {3} aus {4} um tödliches Muster zu vermeiden"
+  explain.avoidable_rectangle: "Vermeidbares Rechteck: Zellen {0} mit gelösten Werten {{{1},{2}}} — eliminiert {3} aus {4} um tödliches Muster zu vermeiden"
+  explain.als_xy_wing: "ALS-XY-Wing: ALS {0}, ALS {1}, ALS {2} verbunden durch X={3} und Y={4} — eliminiert {5} aus Zellen, die Z-Zellen in A und C sehen"
+  explain.death_blossom: "Todesblüte: Stammzelle {0} mit Blütenblättern {1} — eliminiert {2} aus Zellen, die alle Blütenblatt-Z-Zellen sehen"
+  explain.vwxyz_wing: "VWXYZ-Wing: Pivot {0} mit Flügeln {1}, {2}, {3}, {4} — eliminiert {5} aus Zellen, die alle Z-Zellen sehen"
+  explain.franken_fish: "Franken-{0} auf Wert {1}: Basis {2}, Abdeckung {3} — eliminiert {1} aus Abdeckungszellen außerhalb der Basis"
+  explain.grouped_x_cycles: "Gruppierte X-Zyklen auf Wert {0}: Kette mit gruppierten Knoten — {1}"

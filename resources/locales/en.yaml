@@ -1,0 +1,259 @@
+locale: en
+name: English
+
+strings:
+  # Menu items
+  menu.game: "Game"
+  menu.new_game: "New Game"
+  menu.reset_puzzle: "Reset Puzzle"
+  menu.save: "Save"
+  menu.load: "Load"
+  menu.statistics: "Statistics"
+  menu.export_aggregate: "Export Aggregate Stats to CSV"
+  menu.export_sessions: "Export Game Sessions to CSV"
+  menu.exit: "Exit"
+  menu.edit: "Edit"
+  menu.undo: "Undo"
+  menu.redo: "Redo"
+  menu.clear_cell: "Clear Cell"
+  menu.help: "Help"
+  menu.get_hint: "Get Hint"
+  menu.about: "About"
+
+  # Toolbar
+  toolbar.new_game: "\u25b6 New Game"
+  toolbar.difficulty: "Difficulty:"
+  toolbar.hints: "Hints:"
+  toolbar.rating: "Rating:"
+  toolbar.help_icon: "[?]"
+
+  # Difficulty names
+  difficulty.easy: "Easy"
+  difficulty.medium: "Medium"
+  difficulty.hard: "Hard"
+  difficulty.expert: "Expert"
+  difficulty.master: "Master"
+  difficulty.unknown: "Unknown"
+
+  # Action buttons
+  button.check_solution: "Check Solution"
+  button.reset_puzzle: "Reset Puzzle"
+  button.undo: "Undo"
+  button.redo: "Redo"
+  button.undo_to_valid: "Undo to Valid"
+  button.auto_notes_on: "Auto Notes: ON"
+  button.auto_notes_off: "Auto Notes: OFF"
+
+  # Status bar
+  status.completed: "Completed!"
+  status.playing: "Playing"
+  status.ready: "Ready"
+  status.press_f1: "Press F1 to show menu"
+  status.in_progress: "In Progress"
+
+  # Game board
+  board.no_game_loaded: "No game loaded. Start a new game!"
+
+  # Dialogs — New Game
+  dialog.new_game: "New Game"
+  dialog.select_difficulty: "Select difficulty:"
+  dialog.start_game: "Start Game"
+  dialog.cancel: "Cancel"
+
+  # Dialogs — Reset
+  dialog.reset_puzzle: "Reset Puzzle"
+  dialog.reset_warning: "All progress on this puzzle will be lost, including placed numbers, notes, and hints. The timer will restart."
+  dialog.reset: "Reset"
+
+  # Dialogs — Save
+  dialog.save_game: "Save Game"
+  dialog.enter_save_name: "Enter save name:"
+  dialog.save: "Save"
+
+  # Dialogs — Load
+  dialog.load_game: "Load Game"
+  dialog.recent_saves: "Recent saves:"
+
+  # Dialogs — Statistics (parameterized with fmt-style {0})
+  dialog.statistics: "Statistics"
+  dialog.close: "Close"
+  stats.games_played: "Games Played: {0}"
+  stats.games_completed: "Games Completed: {0}"
+  stats.completion_rate: "Completion Rate: {0:.1f}%"
+  stats.best_time: "Best Time: {0}"
+  stats.average_time: "Average Time: {0}"
+  stats.current_streak: "Current Streak: {0}"
+  stats.best_streak: "Best Streak: {0}"
+
+  # Dialogs — About
+  dialog.about: "About"
+  about.sudoku_game: "Sudoku Game"
+  about.phase_info: "Phase 1 Complete - MVVM Architecture"
+  about.built_with: "Built with:"
+
+  # Tooltips — Rating scale
+  tooltip.rating_scale: "Sudoku Explainer Rating Scale:"
+  tooltip.techniques_required: "Techniques Required:"
+
+  # Toast notifications
+  toast.game_saved: "Game saved successfully"
+  toast.aggregate_exported: "Aggregate stats exported to CSV"
+  toast.sessions_exported: "Game sessions exported to CSV"
+  toast.export_failed: "Export failed: {0}"
+
+  # Sidebar
+  sidebar.difficulty: "Difficulty: {0}"
+  sidebar.rating: "Rating: {0}"
+  sidebar.language: "Language"
+
+  # ViewModel — Error messages
+  error.generate_puzzle: "Failed to generate puzzle"
+  error.load_game: "Failed to load game"
+  error.no_active_game: "No active game to save"
+  error.save_game: "Failed to save game"
+  error.export_stats: "Failed to export statistics"
+  error.export_aggregate: "Failed to export aggregate stats"
+  error.export_sessions: "Failed to export game sessions"
+  error.file_access: "File access error"
+  error.serialization: "Serialization error"
+  error.unknown: "Unknown error"
+
+  # ViewModel — Status messages
+  status.no_valid_state: "No valid state in history"
+  status.board_valid: "Board is already valid"
+  status.undone_to_valid: "Undone to last valid state"
+  status.puzzle_completed: "Puzzle completed in {0}:{1}! New game started."
+  status.solution_errors: "Solution has errors. Keep trying!"
+
+  # ViewModel — Hint messages
+  hint.no_remaining: "No hints remaining (0/10 used)"
+  hint.select_cell: "Please select a cell first"
+  hint.cannot_reveal_given: "Cannot reveal hint for given cells"
+  hint.cell_has_value: "Cell already has a value"
+  hint.no_technique: "No logical technique found for this puzzle"
+  hint.suggestion_place: "Suggestion: Place {0} at R{1}C{2}"
+
+  # ViewModel — Technique formatting
+  technique.points_fmt: "{0} ({1} pts)"
+  technique.backtracking: "Backtracking (trial & error)"
+
+  # ViewModel — Statistics error strings
+  stats_err.invalid_data: "Invalid game data"
+  stats_err.file_access: "File access error"
+  stats_err.serialization: "Serialization error"
+  stats_err.invalid_difficulty: "Invalid difficulty"
+  stats_err.game_not_started: "Game not started"
+  stats_err.game_already_ended: "Game already ended"
+  stats_err.unknown: "Unknown statistics error"
+
+  # Technique names
+  tech.naked_single: "Naked Single"
+  tech.hidden_single: "Hidden Single"
+  tech.naked_pair: "Naked Pair"
+  tech.naked_triple: "Naked Triple"
+  tech.hidden_pair: "Hidden Pair"
+  tech.hidden_triple: "Hidden Triple"
+  tech.pointing_pair: "Pointing Pair"
+  tech.box_line_reduction: "Box/Line Reduction"
+  tech.naked_quad: "Naked Quad"
+  tech.hidden_quad: "Hidden Quad"
+  tech.x_wing: "X-Wing"
+  tech.xy_wing: "XY-Wing"
+  tech.swordfish: "Swordfish"
+  tech.skyscraper: "Skyscraper"
+  tech.two_string_kite: "2-String Kite"
+  tech.xyz_wing: "XYZ-Wing"
+  tech.unique_rectangle: "Unique Rectangle"
+  tech.w_wing: "W-Wing"
+  tech.simple_coloring: "Simple Coloring"
+  tech.finned_x_wing: "Finned X-Wing"
+  tech.remote_pairs: "Remote Pairs"
+  tech.bug: "BUG"
+  tech.jellyfish: "Jellyfish"
+  tech.finned_swordfish: "Finned Swordfish"
+  tech.empty_rectangle: "Empty Rectangle"
+  tech.wxyz_wing: "WXYZ-Wing"
+  tech.finned_jellyfish: "Finned Jellyfish"
+  tech.xy_chain: "XY-Chain"
+  tech.multi_coloring: "Multi-Coloring"
+  tech.als_xz: "ALS-XZ"
+  tech.sue_de_coq: "Sue de Coq"
+  tech.forcing_chain: "Forcing Chain"
+  tech.nice_loop: "Nice Loop"
+  tech.x_cycles: "X-Cycles"
+  tech.three_d_medusa: "3D Medusa"
+  tech.hidden_unique_rectangle: "Hidden Unique Rectangle"
+  tech.avoidable_rectangle: "Avoidable Rectangle"
+  tech.als_xy_wing: "ALS-XY-Wing"
+  tech.death_blossom: "Death Blossom"
+  tech.vwxyz_wing: "VWXYZ-Wing"
+  tech.franken_fish: "Franken Fish"
+  tech.grouped_x_cycles: "Grouped X-Cycles"
+  tech.backtracking_name: "Backtracking"
+  tech.unknown: "Unknown Technique"
+
+  # Region names
+  region.row: "Row"
+  region.column: "Column"
+  region.box: "Box"
+  region.unknown: "Unknown Region"
+
+  # Position format (R=Row, C=Column, 1-indexed)
+  position.fmt: "R{0}C{1}"
+
+  # Explanation templates
+  explain.naked_single: "Naked Single at {0}: only value {1} is possible"
+  explain.hidden_single: "Hidden Single at {0}: value {1} can only appear in this cell within its region"
+  explain.naked_pair: "Naked Pair [{0}] at {1} in {2} eliminates candidates from other cells"
+  explain.naked_triple: "Naked Triple [{0}] at {1} in {2} eliminates candidates from other cells"
+  explain.hidden_pair: "Hidden Pair [{0}] at {1} in {2} eliminates other candidates from these cells"
+  explain.hidden_triple: "Hidden Triple [{0}] at {1} in {2} eliminates other candidates from these cells"
+  explain.pointing_pair: "Pointing Pair: {0} in Box {1} confined to {2} {3} eliminates {0} from other cells in {2} {3}"
+  explain.box_line_reduction: "Box/Line Reduction: {0} in {1} {2} confined to Box {3} eliminates {0} from other cells in Box {3}"
+  explain.naked_quad: "Naked Quad [{0}] at {1} in {2} eliminates candidates from other cells"
+  explain.hidden_quad: "Hidden Quad [{0}] at {1} in {2} eliminates other candidates from these cells"
+  explain.x_wing_row: "X-Wing on value {0} in Rows {1} and {2}, Columns {3} and {4} eliminates {0} from other cells in those columns"
+  explain.x_wing_col: "X-Wing on value {0} in Columns {1} and {2}, Rows {3} and {4} eliminates {0} from other cells in those rows"
+  explain.xy_wing: "XY-Wing: pivot {0} {{{1},{2}}}, wing {3} {{{1},{4}}}, wing {5} {{{2},{4}}} eliminates {4} from cells seeing both wings"
+  explain.swordfish_row: "Swordfish on value {0} in Rows {1}, {2}, {3} and Columns {4}, {5}, {6} eliminates {0} from other cells in those columns"
+  explain.swordfish_col: "Swordfish on value {0} in Columns {1}, {2}, {3} and Rows {4}, {5}, {6} eliminates {0} from other cells in those rows"
+  explain.skyscraper: "Skyscraper on value {0}: conjugate pairs in {1} and {2} share endpoint {3} — eliminates {0} from cells seeing both {4} and {5}"
+  explain.two_string_kite: "2-String Kite on value {0}: row pair {1},{2} and column pair {3},{4} connected through shared box — eliminates {0} from cells seeing both endpoints"
+  explain.xyz_wing: "XYZ-Wing: pivot {0} {{{1},{2},{3}}}, wing {4} and wing {5} eliminate {3} from cells seeing all three"
+  explain.unique_rectangle: "Unique Rectangle: cells {0} with values {{{1},{2}}} — eliminates {1},{2} from {3} to avoid deadly pattern"
+  explain.w_wing: "W-Wing: cells {0} and {1} {{{2},{3}}} connected by strong link on {2} — eliminates {3} from cells seeing both"
+  explain.simple_coloring_contradiction: "Simple Coloring on {0}: same-color cells see each other — eliminates {0} from all cells of that color"
+  explain.simple_coloring_exclusion: "Simple Coloring on {0}: cell {1} sees both colors — eliminates {0} from {1}"
+  explain.unique_rectangle_type2: "Unique Rectangle Type 2: cells {0} with values {{{1},{2}}} — extra candidate {3} eliminated from cells seeing both floor cells in shared {4}"
+  explain.unique_rectangle_type3: "Unique Rectangle Type 3: cells {0} with values {{{1},{2}}} — floor extras form naked subset in {3}, eliminating from other cells"
+  explain.unique_rectangle_type4: "Unique Rectangle Type 4: cells {0} with values {{{1},{2}}} — strong link on {3} in {4} eliminates {5} from floor cells"
+  explain.finned_x_wing_row: "Finned X-Wing on value {0} in Rows {1} and {2}, Columns {3} and {4} with fin at {5} — eliminates {0} from cells in fin's box"
+  explain.finned_x_wing_col: "Finned X-Wing on value {0} in Columns {1} and {2}, Rows {3} and {4} with fin at {5} — eliminates {0} from cells in fin's box"
+  explain.remote_pairs: "Remote Pairs: chain of {{{0},{1}}} cells from {2} to {3} (length {4}) — eliminates {0},{1} from cells seeing both endpoints"
+  explain.bug: "BUG: all cells bivalue except {0} — value {1} must be placed to avoid deadly pattern"
+  explain.jellyfish_row: "Jellyfish on value {0} in Rows {1}, {2}, {3}, {4} and Columns {5}, {6}, {7}, {8} eliminates {0} from other cells in those columns"
+  explain.jellyfish_col: "Jellyfish on value {0} in Columns {1}, {2}, {3}, {4} and Rows {5}, {6}, {7}, {8} eliminates {0} from other cells in those rows"
+  explain.finned_swordfish_row: "Finned Swordfish on value {0} in Rows {1}, {2}, {3} with fin at {4} — eliminates {0} from cells in fin's box"
+  explain.finned_swordfish_col: "Finned Swordfish on value {0} in Columns {1}, {2}, {3} with fin at {4} — eliminates {0} from cells in fin's box"
+  explain.empty_rectangle: "Empty Rectangle on value {0}: ER in Box {1} with conjugate pair in {2} — eliminates {0} from {3}"
+  explain.wxyz_wing: "WXYZ-Wing: pivot {0} with wings {1}, {2}, {3} — eliminates {4} from cells seeing all four"
+  explain.finned_jellyfish_row: "Finned Jellyfish on value {0} in Rows {1}, {2}, {3}, {4} with fin at {5} — eliminates {0} from cells in fin's box"
+  explain.finned_jellyfish_col: "Finned Jellyfish on value {0} in Columns {1}, {2}, {3}, {4} with fin at {5} — eliminates {0} from cells in fin's box"
+  explain.xy_chain: "XY-Chain: chain of {0} bivalue cells from {1} to {2} — eliminates {3} from cells seeing both endpoints"
+  explain.multi_coloring_wrap: "Multi-Coloring on {0}: color sees both colors of another cluster — eliminates {0} from all cells of that color"
+  explain.multi_coloring_trap: "Multi-Coloring on {0}: cell {1} sees complementary colors from two clusters — eliminates {0}"
+  explain.als_xz: "ALS-XZ: ALS {0} and ALS {1} linked by restricted common {2} — eliminates {3} from cells seeing both ALSs"
+  explain.sue_de_coq: "Sue de Coq: intersection of {0} and Box {1} — eliminates candidates from rest of line and box"
+  explain.forcing_chain: "Forcing Chain: assuming each candidate in {0} leads to the same conclusion — {1}"
+  explain.nice_loop: "Nice Loop: alternating inference chain from {0} to {1} — eliminates {2}"
+  explain.x_cycles_type1: "X-Cycles on value {0}: continuous loop — eliminates {0} from cells seeing weak link endpoints"
+  explain.x_cycles_type2: "X-Cycles on value {0}: strong-strong discontinuity at {1} — places {0}"
+  explain.x_cycles_type3: "X-Cycles on value {0}: weak-weak discontinuity at {1} — eliminates {0} from {1}"
+  explain.three_d_medusa: "3D Medusa: multi-digit coloring — {0}"
+  explain.hidden_unique_rectangle: "Hidden Unique Rectangle: cells {0} with values {{{1},{2}}} — eliminates {3} from {4} to avoid deadly pattern"
+  explain.avoidable_rectangle: "Avoidable Rectangle: cells {0} with solved values {{{1},{2}}} — eliminates {3} from {4} to avoid deadly pattern"
+  explain.als_xy_wing: "ALS-XY-Wing: ALS {0}, ALS {1}, ALS {2} linked by X={3} and Y={4} — eliminates {5} from cells seeing Z-cells in A and C"
+  explain.death_blossom: "Death Blossom: stem {0} with petals {1} — eliminates {2} from cells seeing all petal Z-cells"
+  explain.vwxyz_wing: "VWXYZ-Wing: pivot {0} with wings {1}, {2}, {3}, {4} — eliminates {5} from cells seeing all Z-cells"
+  explain.franken_fish: "Franken {0} on value {1}: base {2}, cover {3} — eliminates {1} from cover cells outside base"
+  explain.grouped_x_cycles: "Grouped X-Cycles on value {0}: chain with grouped nodes — {1}"

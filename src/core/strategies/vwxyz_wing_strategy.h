@@ -1,0 +1,238 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include "../i_solving_strategy.h"
+#include "../solve_step.h"
+#include "../solving_technique.h"
+#include "../strategy_base.h"
+
+#include <array>
+#include <optional>
+#include <vector>
+
+#include <bit>
+#include <fmt/format.h>
+
+namespace sudoku::core {
+
+/// Strategy for finding VWXYZ-Wing patterns.
+/// Five cells with exactly 5 candidate values total. Exactly one value must be
+/// "non-restricted" (not all cells containing it see each other). That value Z
+/// can be eliminated from external cells that see all cells containing Z.
+/// Extension of WXYZ-Wing from 4 cells/values to 5 cells/values.
+class VWXYZWingStrategy : public ISolvingStrategy, protected StrategyBase {
+public:
+    [[nodiscard]] std::optional<SolveStep> findStep(const std::vector<std::vector<int>>& board,
+                                                    const CandidateGrid& candidates) const override {
+        std::vector<Position> pivot_cells;
+        std::vector<Position> bivalue_cells;
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (board[row][col] != EMPTY_CELL) {
+                    continue;
+                }
+                int count = candidates.countPossibleValues(row, col);
+                if (count >= 3 && count <= 5) {
+                    pivot_cells.push_back(Position{.row = row, .col = col});
+                }
+                if (count == 2) {
+                    bivalue_cells.push_back(Position{.row = row, .col = col});
+                }
+            }
+        }
+
+        for (const auto& pivot : pivot_cells) {
+            auto result = tryPivot(board, candidates, pivot, bivalue_cells);
+            if (result.has_value()) {
+                return result;
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    [[nodiscard]] SolvingTechnique getTechnique() const override {
+        return SolvingTechnique::VWXYZWing;
+    }
+
+    [[nodiscard]] std::string_view getName() const override {
+        return "VWXYZ-Wing";
+    }
+
+    [[nodiscard]] int getDifficultyPoints() const override {
+        return getTechniquePoints(SolvingTechnique::VWXYZWing);
+    }
+
+private:
+    /// Checks whether all cells in the list mutually see each other
+    [[nodiscard]] static bool allMutuallyVisible(const std::vector<Position>& cells) {
+        for (size_t ci = 0; ci < cells.size(); ++ci) {
+            for (size_t cj = ci + 1; cj < cells.size(); ++cj) {
+                if (!sees(cells[ci], cells[cj])) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — enumerates wing quadruples for VWXYZ pattern; nesting is inherent
+    [[nodiscard]] static std::optional<SolveStep> tryPivot(const std::vector<std::vector<int>>& board,
+                                                           const CandidateGrid& candidates, const Position& pivot,
+                                                           const std::vector<Position>& bivalue_cells) {
+        uint16_t pivot_mask = candidates.getPossibleValuesMask(pivot.row, pivot.col);
+
+        // Collect wings that see the pivot and share at least one candidate
+        std::vector<std::pair<Position, uint16_t>> wings;
+        for (const auto& cell : bivalue_cells) {
+            if (!sees(pivot, cell)) {
+                continue;
+            }
+            uint16_t wing_mask = candidates.getPossibleValuesMask(cell.row, cell.col);
+            if ((wing_mask & pivot_mask) == 0) {
+                continue;
+            }
+            wings.emplace_back(cell, wing_mask);
+        }
+
+        if (wings.size() < 4) {
+            return std::nullopt;
+        }
+
+        // Try all quadruples of wings
+        for (size_t i = 0; i < wings.size(); ++i) {
+            for (size_t j = i + 1; j < wings.size(); ++j) {
+                uint16_t partial2 = pivot_mask | wings[i].second | wings[j].second;
+                if (std::popcount(partial2) > 5) {
+                    continue;
+                }
+                for (size_t k = j + 1; k < wings.size(); ++k) {
+                    uint16_t partial3 = partial2 | wings[k].second;
+                    if (std::popcount(partial3) > 5) {
+                        continue;
+                    }
+                    for (size_t l = k + 1; l < wings.size(); ++l) {
+                        uint16_t union_mask = partial3 | wings[l].second;
+                        if (std::popcount(union_mask) != 5) {
+                            continue;
+                        }
+
+                        const auto& w1 = wings[i].first;
+                        const auto& w2 = wings[j].first;
+                        const auto& w3 = wings[k].first;
+                        const auto& w4 = wings[l].first;
+
+                        std::array<Position, 5> pattern = {pivot, w1, w2, w3, w4};
+                        std::array<uint16_t, 5> masks = {pivot_mask, wings[i].second, wings[j].second, wings[k].second,
+                                                         wings[l].second};
+
+                        auto result =
+                            classifyAndEliminate(board, candidates, pattern, masks, union_mask, pivot, w1, w2, w3, w4);
+                        if (result.has_value()) {
+                            return result;
+                        }
+                    }
+                }
+            }
+        }
+
+        return std::nullopt;
+    }
+
+    /// Classify values as restricted/non-restricted, find Z, and eliminate.
+    [[nodiscard]] static std::optional<SolveStep>
+    classifyAndEliminate(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
+                         const std::array<Position, 5>& pattern, const std::array<uint16_t, 5>& masks,
+                         uint16_t union_mask, const Position& pivot, const Position& w1, const Position& w2,
+                         const Position& w3, const Position& w4) {
+        int z_value = 0;
+        int non_restricted_count = 0;
+        std::vector<Position> z_cells;
+
+        for (int val = MIN_VALUE; val <= MAX_VALUE; ++val) {
+            if ((union_mask & valueToBit(val)) == 0) {
+                continue;
+            }
+            std::vector<Position> cells_with_val;
+            for (int ci = 0; ci < 5; ++ci) {
+                if ((masks[ci] & valueToBit(val)) != 0) {
+                    cells_with_val.push_back(pattern[ci]);
+                }
+            }
+            if (!allMutuallyVisible(cells_with_val)) {
+                ++non_restricted_count;
+                z_value = val;
+                z_cells = std::move(cells_with_val);
+            }
+        }
+
+        if (non_restricted_count != 1) {
+            return std::nullopt;
+        }
+
+        // Eliminate Z from external cells that see ALL cells containing Z
+        std::vector<Elimination> eliminations;
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (board[row][col] != EMPTY_CELL) {
+                    continue;
+                }
+                Position pos{.row = row, .col = col};
+                if (pos == pivot || pos == w1 || pos == w2 || pos == w3 || pos == w4) {
+                    continue;
+                }
+                if (!candidates.isAllowed(row, col, z_value)) {
+                    continue;
+                }
+                bool sees_all_z = true;
+                for (const auto& zc : z_cells) {
+                    if (!sees(pos, zc)) {
+                        sees_all_z = false;
+                        break;
+                    }
+                }
+                if (sees_all_z) {
+                    eliminations.push_back(Elimination{.position = pos, .value = z_value});
+                }
+            }
+        }
+
+        if (eliminations.empty()) {
+            return std::nullopt;
+        }
+
+        auto explanation =
+            fmt::format("VWXYZ-Wing: pivot {} with wings {}, {}, {}, {} — eliminates {} from cells seeing all Z-cells",
+                        formatPosition(pivot), formatPosition(w1), formatPosition(w2), formatPosition(w3),
+                        formatPosition(w4), z_value);
+
+        return SolveStep{.type = SolveStepType::Elimination,
+                         .technique = SolvingTechnique::VWXYZWing,
+                         .position = pivot,
+                         .value = 0,
+                         .eliminations = eliminations,
+                         .explanation = explanation,
+                         .points = getTechniquePoints(SolvingTechnique::VWXYZWing),
+                         .explanation_data = {.positions = {pivot, w1, w2, w3, w4},
+                                              .values = {z_value},
+                                              .position_roles = {CellRole::Pivot, CellRole::Wing, CellRole::Wing,
+                                                                 CellRole::Wing, CellRole::Wing}}};
+    }
+};
+
+}  // namespace sudoku::core
