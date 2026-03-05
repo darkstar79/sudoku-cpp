@@ -331,7 +331,7 @@ std::expected<void, StatisticsError> StatisticsManager::importStats(const std::s
         // Merge imported stats with current stats
         const auto& imported_stats = *import_result;
 
-        for (int i = 0; i < 4; ++i) {
+        for (size_t i = 0; i < DIFFICULTY_COUNT; ++i) {
             cached_stats_.games_played[i] += imported_stats.games_played[i];
             cached_stats_.games_completed[i] += imported_stats.games_completed[i];
 
