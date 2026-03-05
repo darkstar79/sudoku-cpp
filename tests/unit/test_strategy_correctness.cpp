@@ -374,10 +374,10 @@ std::tuple<int, int, int> runCorrectnessCheck(Difficulty difficulty, int num_puz
 
 }  // namespace
 
-TEST_CASE("Strategy correctness: no wrong deductions on Hard puzzles", "[.][strategy][correctness]") {
-    constexpr int NUM_PUZZLES = 5000;
-    auto [wrong, generated, unsolvable] = runCorrectnessCheck(Difficulty::Hard, NUM_PUZZLES);
+TEST_CASE("Strategy correctness: no wrong deductions on Master puzzles", "[.][strategy][correctness]") {
+    constexpr int NUM_PUZZLES = 2000;
+    auto [wrong, generated, unsolvable] = runCorrectnessCheck(Difficulty::Master, NUM_PUZZLES);
 
-    INFO("Generated " << generated << " Hard puzzles, " << wrong << " wrong, " << unsolvable << " unsolvable");
+    INFO("Generated " << generated << " Master puzzles, " << wrong << " wrong, " << unsolvable << " unsolvable");
     REQUIRE(wrong == 0);
 }

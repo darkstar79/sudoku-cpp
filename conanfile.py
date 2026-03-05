@@ -41,9 +41,6 @@ class SudokuConan(ConanFile):
         self.requires("libsodium/1.0.18")  # For save file encryption
         # self.requires("openssl/3.5.1")  # Temporarily disabled due to Perl FindBin issue
 
-        # Force newer mpg123 version to fix GCC 15 compatibility issues
-        self.requires("mpg123/1.33.0", override=True)
-
         # Testing framework (conditional)
         if self.options.with_tests:
             self.requires("catch2/3.4.0")

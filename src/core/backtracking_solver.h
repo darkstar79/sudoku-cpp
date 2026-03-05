@@ -33,7 +33,7 @@ class ConstraintState;
 enum class ValueSelectionStrategy : std::uint8_t {
     Sequential,      // Try 1-9 in order (deterministic)
     Randomized,      // Try 1-9 in random order (for puzzle generation)
-    MostConstrained  // Use getPossibleValues() - fewest options first (optimal pruning)
+    MostConstrained  // Fewest options first (optimal pruning via ConstraintState)
 };
 
 /**
@@ -75,13 +75,6 @@ public:
 
 private:
     std::shared_ptr<IGameValidator> validator_;
-
-    // Legacy vector<vector<int>> path (delegates to validator for candidate lookup)
-    [[nodiscard]] static std::optional<Position> findEmptyPosition(const std::vector<std::vector<int>>& board);
-    [[nodiscard]] std::vector<int> getValuesToTry(const std::vector<std::vector<int>>& board, const Position& pos,
-                                                  ValueSelectionStrategy strategy, std::mt19937* rng) const;
-    [[nodiscard]] bool solveRecursive(std::vector<std::vector<int>>& board, ValueSelectionStrategy strategy,
-                                      std::mt19937* rng) const;
 
     // Board path (uses ConstraintState for O(1) validation instead of O(27) validator scan)
     [[nodiscard]] static std::optional<Position> findEmptyPosition(const Board& board);

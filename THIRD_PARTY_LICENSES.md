@@ -16,7 +16,6 @@ This project is licensed under the **GNU General Public License v3.0 (GPLv3)** (
 | BSD 3-Clause | 1 | CMake |
 | Apache 2.0 | 1 | Ninja |
 | Boost Software License 1.0 | 1 | Catch2 |
-| LGPL 2.1 | 1 | mpg123 (transitive dependency) |
 
 **All licenses are permissive and compatible with GPLv3 licensing for this project.**
 
@@ -124,24 +123,6 @@ All backends are MIT licensed and sourced from the official ImGui project.
 
 ---
 
-### mpg123
-
-- **Version:** 1.33.0
-- **License:** LGPL 2.1 (Lesser General Public License)
-- **Purpose:** Audio decoding library
-- **Homepage:** https://www.mpg123.de/
-- **License URL:** https://www.mpg123.de/license.shtml
-
-**License Summary:** Weak copyleft license. Compatible with this project when dynamically linked (which Conan does by default).
-
-**Usage:** Transitive dependency pulled in through Conan for GCC 15 compatibility. The library is dynamically linked (shared library), satisfying LGPL requirements.
-
-**LGPL Compliance:**
-- This project is GPLv3-licensed, which is fully compatible with LGPL 2.1 regardless of static or dynamic linking (LGPL 2.1 Section 3 permits relicensing under GPL)
-- mpg123 source code available at https://www.mpg123.de/
-
----
-
 ## Build System Dependencies
 
 ### CMake
@@ -241,7 +222,6 @@ All backends are MIT licensed and sourced from the official ImGui project.
 | yaml-cpp | MIT | ✅ | ✅ | ❌ | ✅ |
 | zlib | zlib | ✅ | ✅ | ❌ | ✅ |
 | libsodium | ISC | ✅ | ✅ | ❌ | ✅ |
-| mpg123 | LGPL 2.1 | ✅ | ✅ | Weak | ✅ |
 | CMake | BSD 3-Clause | ✅ | ✅ | ❌ | ✅ |
 | Ninja | Apache 2.0 | ✅ | ✅ | ❌ | ✅ |
 | Catch2 | Boost 1.0 | ✅ | ✅ | ❌ | ✅ |

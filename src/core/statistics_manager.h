@@ -97,21 +97,10 @@ private:
     std::expected<void, StatisticsError> saveStatistics() const;
     std::expected<void, StatisticsError> saveGameSession(const GameStats& stats) const;
 
-    // YAML serialization
-    std::expected<void, StatisticsError> serializeStatsToYaml(const AggregateStats& stats,
-                                                              const std::filesystem::path& file_path) const;
-
-    static std::expected<AggregateStats, StatisticsError>
-    deserializeStatsFromYaml(const std::filesystem::path& file_path);
-
-    static std::expected<void, StatisticsError>
-    serializeGameStatsToYaml(const GameStats& stats, const std::filesystem::path& file_path, bool append = true);
-
-    static std::expected<std::vector<GameStats>, StatisticsError>
-    deserializeGameStatsFromYaml(const std::filesystem::path& file_path);
+    // YAML serialization and CSV export are in statistics_serializer.h
 
     // Statistics calculation
-    void updateAggregateStats(const GameStats& completed_game);
+    void updateAggregateStats(const GameStats& completed_game) const;
     void invalidateStatsCache();
     std::expected<void, StatisticsError> recalculateAggregateStats() const;
 

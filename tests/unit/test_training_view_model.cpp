@@ -30,17 +30,15 @@ namespace {
 /// Creates a predictable set of exercises without actual puzzle generation
 class MockExerciseGenerator : public ITrainingExerciseGenerator {
 public:
-    SolvingTechnique last_requested_technique{SolvingTechnique::NakedSingle};
-    int last_requested_count{0};
+    mutable SolvingTechnique last_requested_technique{SolvingTechnique::NakedSingle};
+    mutable int last_requested_count{0};
     bool should_fail{false};
     std::string fail_message{"Mock generation failed"};
 
     [[nodiscard]] std::expected<std::vector<TrainingExercise>, std::string>
     generateExercises(SolvingTechnique technique, int count) const override {
-        // NOLINTNEXTLINE(cppcoreguidelines-pro-type-const-cast)
-        auto* mutable_this = const_cast<MockExerciseGenerator*>(this);
-        mutable_this->last_requested_technique = technique;
-        mutable_this->last_requested_count = count;
+        last_requested_technique = technique;
+        last_requested_count = count;
 
         if (should_fail) {
             return std::unexpected(fail_message);
