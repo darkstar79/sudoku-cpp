@@ -21,6 +21,7 @@
 #include "../solving_technique.h"
 #include "../strategy_base.h"
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <queue>
@@ -69,7 +70,7 @@ private:
 
     /// Node index: (row * 9 + col) * 9 + (digit - 1)
     [[nodiscard]] static size_t nodeIndex(size_t row, size_t col, int digit) {
-        return ((row * BOARD_SIZE) + col) * MAX_VALUE + static_cast<size_t>(digit - 1);
+        return (((row * BOARD_SIZE) + col) * MAX_VALUE) + static_cast<size_t>(digit - 1);
     }
 
     [[nodiscard]] static size_t nodeRow(size_t idx) {
@@ -376,6 +377,7 @@ private:
 
         // Collect chain positions
         std::vector<Position> chain_positions;
+        chain_positions.reserve(color_a_nodes.size() + color_b_nodes.size());
         for (size_t node : color_a_nodes) {
             chain_positions.push_back(Position{.row = nodeRow(node), .col = nodeCol(node)});
         }
@@ -402,29 +404,17 @@ private:
     /// Check if an uncolored candidate sees a node with the given digit in the color set.
     [[nodiscard]] static bool seesColorWithDigit(const Position& pos, int digit,
                                                  const std::vector<size_t>& color_nodes) {
-        for (size_t node : color_nodes) {
-            if (nodeDigit(node) != digit) {
-                continue;
-            }
-            Position p{.row = nodeRow(node), .col = nodeCol(node)};
-            if (sees(pos, p)) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(color_nodes, [&](size_t node) {
+            return nodeDigit(node) == digit && sees(pos, Position{.row = nodeRow(node), .col = nodeCol(node)});
+        });
     }
 
     /// Check if a cell contains any node in the given component color set.
     /// Only checks nodes from the CURRENT component (not from previous components).
     [[nodiscard]] static bool hasCellColorInComponent(size_t row, size_t col,
                                                       const std::vector<size_t>& component_nodes) {
-        size_t cell = row * BOARD_SIZE + col;
-        for (size_t node : component_nodes) {
-            if (cellOf(node) == cell) {
-                return true;
-            }
-        }
-        return false;
+        size_t cell = (row * BOARD_SIZE) + col;
+        return std::ranges::any_of(component_nodes, [cell](size_t node) { return cellOf(node) == cell; });
     }
 
     /// Add elimination only if not already present.

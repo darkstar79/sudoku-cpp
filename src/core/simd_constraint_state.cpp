@@ -37,8 +37,8 @@ namespace sudoku::core {
 namespace {
 
 /// Lookup table for 4-bit popcount (replicated for both 128-bit lanes)
+// NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays) — alignas required for _mm256_load_si256
 alignas(SIMD_ALIGNMENT) constexpr uint8_t POPCOUNT_LOOKUP[32] = {
-    // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays) — alignas required for _mm256_load_si256
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4,  // Lane 0
     0, 1, 1, 2, 1, 2, 2, 3, 1, 2, 2, 3, 2, 3, 3, 4   // Lane 1
 };
@@ -154,8 +154,8 @@ int SIMDConstraintState::findMRVCell() const {
 
         // Extract counts to array for comparison
         // (Could be further optimized with horizontal min, but this is already fast)
-        alignas(SIMD_ALIGNMENT) uint16_t count_arr
-            [16];  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays) — alignas required for _mm256_store_si256
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays) — alignas required for _mm256_store_si256
+        alignas(SIMD_ALIGNMENT) uint16_t count_arr[16];
         _mm256_store_si256(reinterpret_cast<__m256i*>(count_arr), counts);
 
         // Find minimum among unsolved cells (count > 1)

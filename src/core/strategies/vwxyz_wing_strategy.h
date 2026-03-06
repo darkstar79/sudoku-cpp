@@ -21,6 +21,7 @@
 #include "../solving_technique.h"
 #include "../strategy_base.h"
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <vector>
@@ -154,12 +155,14 @@ private:
         return std::nullopt;
     }
 
-    /// Classify values as restricted/non-restricted, find Z, and eliminate.
-    [[nodiscard]] static std::optional<SolveStep>
-    classifyAndEliminate(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
-                         const std::array<Position, 5>& pattern, const std::array<uint16_t, 5>& masks,
-                         uint16_t union_mask, const Position& pivot, const Position& w1, const Position& w2,
-                         const Position& w3, const Position& w4) {
+    /// Find the single non-restricted value (Z) and its cells. Returns nullopt if not exactly one.
+    struct ZValueResult {
+        int z_value;
+        std::vector<Position> z_cells;
+    };
+    [[nodiscard]] static std::optional<ZValueResult> findNonRestrictedValue(const std::array<Position, 5>& pattern,
+                                                                            const std::array<uint16_t, 5>& masks,
+                                                                            uint16_t union_mask) {
         int z_value = 0;
         int non_restricted_count = 0;
         std::vector<Position> z_cells;
@@ -184,8 +187,28 @@ private:
         if (non_restricted_count != 1) {
             return std::nullopt;
         }
+        return ZValueResult{.z_value = z_value, .z_cells = std::move(z_cells)};
+    }
 
-        // Eliminate Z from external cells that see ALL cells containing Z
+    /// Check if a position sees all cells in a list.
+    [[nodiscard]] static bool seesAllCells(const Position& pos, const std::vector<Position>& cells) {
+        return std::ranges::all_of(cells, [&pos](const Position& c) { return sees(pos, c); });
+    }
+
+    /// Classify values as restricted/non-restricted, find Z, and eliminate.
+    [[nodiscard]] static std::optional<SolveStep>
+    classifyAndEliminate(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
+                         const std::array<Position, 5>& pattern, const std::array<uint16_t, 5>& masks,
+                         uint16_t union_mask, const Position& pivot, const Position& w1, const Position& w2,
+                         const Position& w3, const Position& w4) {
+        auto z_result = findNonRestrictedValue(pattern, masks, union_mask);
+        if (!z_result.has_value()) {
+            return std::nullopt;
+        }
+        int z_value = z_result->z_value;
+        const auto& z_cells = z_result->z_cells;
+
+        std::array<Position, 5> wing_cells = {pivot, w1, w2, w3, w4};
         std::vector<Elimination> eliminations;
         for (size_t row = 0; row < BOARD_SIZE; ++row) {
             for (size_t col = 0; col < BOARD_SIZE; ++col) {
@@ -193,20 +216,13 @@ private:
                     continue;
                 }
                 Position pos{.row = row, .col = col};
-                if (pos == pivot || pos == w1 || pos == w2 || pos == w3 || pos == w4) {
+                if (std::ranges::any_of(wing_cells, [&pos](const Position& w) { return w == pos; })) {
                     continue;
                 }
                 if (!candidates.isAllowed(row, col, z_value)) {
                     continue;
                 }
-                bool sees_all_z = true;
-                for (const auto& zc : z_cells) {
-                    if (!sees(pos, zc)) {
-                        sees_all_z = false;
-                        break;
-                    }
-                }
-                if (sees_all_z) {
+                if (seesAllCells(pos, z_cells)) {
                     eliminations.push_back(Elimination{.position = pos, .value = z_value});
                 }
             }

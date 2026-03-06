@@ -82,18 +82,13 @@ private:
     }
 
     [[nodiscard]] static size_t cellIndex(size_t row, size_t col) {
-        return row * BOARD_SIZE + col;
+        return (row * BOARD_SIZE) + col;
     }
 
     /// Check if a cell sees all cells in a node (for weak links and elimination checks).
     [[nodiscard]] static bool cellSeesNode(size_t cell, const GNode& node) {
         Position p = indexToPos(cell);
-        for (size_t c : node.cells) {
-            if (c == cell || !sees(p, indexToPos(c))) {
-                return false;
-            }
-        }
-        return true;
+        return std::ranges::all_of(node.cells, [&](size_t c) { return c != cell && sees(p, indexToPos(c)); });
     }
 
     /// Check if all cells of node A see all cells of node B.
@@ -110,12 +105,7 @@ private:
 
     /// Check if nodes share any cells.
     [[nodiscard]] static bool nodesOverlap(const GNode& a, const GNode& b) {
-        for (size_t ca : a.cells) {
-            if (b.containsCell(ca)) {
-                return true;
-            }
-        }
-        return false;
+        return std::ranges::any_of(a.cells, [&b](size_t ca) { return b.containsCell(ca); });
     }
 
     /// Build nodes and links, then search for cycles.
@@ -138,6 +128,7 @@ private:
 
         // Build nodes: single cells + groups
         std::vector<GNode> nodes;
+        nodes.reserve(cand_cells.size() + (BOARD_SIZE * BOX_SIZE * 2));
 
         // Single cell nodes
         for (size_t cell : cand_cells) {

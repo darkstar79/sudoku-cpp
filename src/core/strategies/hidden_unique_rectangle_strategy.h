@@ -130,13 +130,18 @@ private:
         // a=(r1,c1), b=(r1,c2), c=(r2,c1), d=(r2,c2)
         // Each corner's row-partner shares its row, col-partner shares its column, diag is opposite
         struct CornerCheck {
-            const Position& target;
-            const Position& row_partner;
-            const Position& col_partner;
-            const Position& diag_partner;
-            size_t index;
+            Position target;
+            Position row_partner;
+            Position col_partner;
+            Position diag_partner;
+            size_t index = 0;
         };
-        std::array<CornerCheck, 4> corners = {{{a, b, c, d, 0}, {b, a, d, c, 1}, {c, d, a, b, 2}, {d, c, b, a, 3}}};
+        std::array<CornerCheck, 4> corners = {{
+            {.target = a, .row_partner = b, .col_partner = c, .diag_partner = d, .index = 0},
+            {.target = b, .row_partner = a, .col_partner = d, .diag_partner = c, .index = 1},
+            {.target = c, .row_partner = d, .col_partner = a, .diag_partner = b, .index = 2},
+            {.target = d, .row_partner = c, .col_partner = b, .diag_partner = a, .index = 3},
+        }};
 
         for (const auto& [target, row_partner, col_partner, diag_partner, idx] : corners) {
             auto result = checkSingleCorner(board, candidates, a, b, c, d, target, row_partner, col_partner,

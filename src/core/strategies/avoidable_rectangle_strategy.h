@@ -239,6 +239,7 @@ private:
 
         std::vector<Position> all_positions = {c1, c2, c3, c4};
         std::vector<CellRole> roles;
+        roles.reserve(all_positions.size());
         for (const auto& pos : all_positions) {
             roles.push_back((pos == target) ? CellRole::Floor : CellRole::Roof);
         }

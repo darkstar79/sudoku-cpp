@@ -165,6 +165,11 @@ private:
         return std::nullopt;
     }
 
+    /// Check if a position sees all cells in the given list.
+    [[nodiscard]] static bool seesAllCells(const Position& pos, const std::vector<Position>& cells) {
+        return std::ranges::all_of(cells, [&pos](const Position& c) { return sees(pos, c); });
+    }
+
     /// Try to eliminate Z from cells seeing all Z-cells in both A and C.
     [[nodiscard]] static std::optional<SolveStep> tryElimination(const std::vector<std::vector<int>>& board,
                                                                  const CandidateGrid& candidates, const ALS& als_a,
@@ -176,25 +181,11 @@ private:
             return std::nullopt;
         }
 
-        // Cells in the 3 ALSs
         auto isInALS = [&](size_t row, size_t col) {
             Position p{.row = row, .col = col};
-            for (const auto& c : als_a.cells) {
-                if (c == p) {
-                    return true;
-                }
-            }
-            for (const auto& c : als_b.cells) {
-                if (c == p) {
-                    return true;
-                }
-            }
-            for (const auto& c : als_c.cells) {
-                if (c == p) {
-                    return true;
-                }
-            }
-            return false;
+            auto eq = [&p](const Position& c) { return c == p; };
+            return std::ranges::any_of(als_a.cells, eq) || std::ranges::any_of(als_b.cells, eq) ||
+                   std::ranges::any_of(als_c.cells, eq);
         };
 
         std::vector<Elimination> eliminations;
@@ -206,27 +197,8 @@ private:
                 if (!candidates.isAllowed(row, col, val_z)) {
                     continue;
                 }
-
                 Position p{.row = row, .col = col};
-                bool sees_all_a_z = true;
-                for (const auto& az : a_z_cells) {
-                    if (!sees(p, az)) {
-                        sees_all_a_z = false;
-                        break;
-                    }
-                }
-                if (!sees_all_a_z) {
-                    continue;
-                }
-
-                bool sees_all_c_z = true;
-                for (const auto& cz : c_z_cells) {
-                    if (!sees(p, cz)) {
-                        sees_all_c_z = false;
-                        break;
-                    }
-                }
-                if (sees_all_c_z) {
+                if (seesAllCells(p, a_z_cells) && seesAllCells(p, c_z_cells)) {
                     eliminations.push_back(Elimination{.position = p, .value = val_z});
                 }
             }

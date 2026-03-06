@@ -21,6 +21,7 @@
 #include "../solving_technique.h"
 #include "../strategy_base.h"
 
+#include <algorithm>
 #include <array>
 #include <optional>
 #include <vector>
@@ -64,21 +65,22 @@ private:
     static constexpr size_t MAX_CHAIN_LEN = 10;
 
     [[nodiscard]] static size_t cellIndex(size_t row, size_t col) {
-        return row * BOARD_SIZE + col;
+        return (row * BOARD_SIZE) + col;
     }
 
     [[nodiscard]] static Position indexToPos(size_t idx) {
         return Position{.row = idx / BOARD_SIZE, .col = idx % BOARD_SIZE};
     }
 
-    /// Build strong link adjacency list (conjugate pairs in each unit).
-    static void buildStrongLinks(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates, int digit,
-                                 std::array<std::vector<size_t>, TOTAL_CELLS>& strong_adj) {
-        auto addEdge = [&](size_t a, size_t b) {
-            strong_adj[a].push_back(b);
-            strong_adj[b].push_back(a);
-        };
+    /// Add a bidirectional edge to the adjacency list.
+    static void addEdge(std::array<std::vector<size_t>, TOTAL_CELLS>& adj, size_t a, size_t b) {
+        adj[a].push_back(b);
+        adj[b].push_back(a);
+    }
 
+    /// Collect candidate cell indices for a digit within one unit, add strong link if exactly 2.
+    static void addStrongLinksForRows(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
+                                      int digit, std::array<std::vector<size_t>, TOTAL_CELLS>& adj) {
         for (size_t row = 0; row < BOARD_SIZE; ++row) {
             std::vector<size_t> cols;
             for (size_t col = 0; col < BOARD_SIZE; ++col) {
@@ -87,10 +89,13 @@ private:
                 }
             }
             if (cols.size() == 2) {
-                addEdge(cellIndex(row, cols[0]), cellIndex(row, cols[1]));
+                addEdge(adj, cellIndex(row, cols[0]), cellIndex(row, cols[1]));
             }
         }
+    }
 
+    static void addStrongLinksForCols(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
+                                      int digit, std::array<std::vector<size_t>, TOTAL_CELLS>& adj) {
         for (size_t col = 0; col < BOARD_SIZE; ++col) {
             std::vector<size_t> rows;
             for (size_t row = 0; row < BOARD_SIZE; ++row) {
@@ -99,10 +104,13 @@ private:
                 }
             }
             if (rows.size() == 2) {
-                addEdge(cellIndex(rows[0], col), cellIndex(rows[1], col));
+                addEdge(adj, cellIndex(rows[0], col), cellIndex(rows[1], col));
             }
         }
+    }
 
+    static void addStrongLinksForBoxes(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
+                                       int digit, std::array<std::vector<size_t>, TOTAL_CELLS>& adj) {
         for (size_t box = 0; box < BOARD_SIZE; ++box) {
             size_t sr = (box / BOX_SIZE) * BOX_SIZE;
             size_t sc = (box % BOX_SIZE) * BOX_SIZE;
@@ -115,9 +123,17 @@ private:
                 }
             }
             if (cells.size() == 2) {
-                addEdge(cells[0], cells[1]);
+                addEdge(adj, cells[0], cells[1]);
             }
         }
+    }
+
+    /// Build strong link adjacency list (conjugate pairs in each unit).
+    static void buildStrongLinks(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates, int digit,
+                                 std::array<std::vector<size_t>, TOTAL_CELLS>& strong_adj) {
+        addStrongLinksForRows(board, candidates, digit, strong_adj);
+        addStrongLinksForCols(board, candidates, digit, strong_adj);
+        addStrongLinksForBoxes(board, candidates, digit, strong_adj);
     }
 
     /// Build weak link adjacency list (cells sharing a unit with candidate).
@@ -265,6 +281,14 @@ private:
         return std::nullopt;
     }
 
+    /// Check if a cell sees both endpoints of any weak link.
+    [[nodiscard]] static bool seesAnyWeakLink(const Position& pos,
+                                              const std::vector<std::pair<size_t, size_t>>& weak_links) {
+        return std::ranges::any_of(weak_links, [&pos](const auto& link) {
+            return sees(pos, indexToPos(link.first)) && sees(pos, indexToPos(link.second));
+        });
+    }
+
     /// Type 1: Continuous nice loop — eliminate digit from external cells seeing
     /// both endpoints of any weak link in the loop.
     [[nodiscard]] static std::optional<SolveStep> buildType1Step(const std::vector<std::vector<int>>& board,
@@ -273,7 +297,6 @@ private:
                                                                  bool first_link_strong) {
         size_t n = chain.size();
 
-        // Identify weak links in the cycle
         std::vector<std::pair<size_t, size_t>> weak_links;
         for (size_t i = 0; i < n; ++i) {
             bool is_strong = ((i % 2) == 0) == first_link_strong;
@@ -298,11 +321,8 @@ private:
                     continue;
                 }
                 Position pos{.row = row, .col = col};
-                for (const auto& [from, to] : weak_links) {
-                    if (sees(pos, indexToPos(from)) && sees(pos, indexToPos(to))) {
-                        eliminations.push_back(Elimination{.position = pos, .value = digit});
-                        break;
-                    }
+                if (seesAnyWeakLink(pos, weak_links)) {
+                    eliminations.push_back(Elimination{.position = pos, .value = digit});
                 }
             }
         }

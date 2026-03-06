@@ -43,8 +43,8 @@ int findMRVCell(const std::array<uint16_t, SIMD_PADDED_CELLS_512>& candidates) {
         __m512i counts = _mm512_popcnt_epi16(cands);
 
         // Extract counts for comparison
-        alignas(64) uint16_t count_arr
-            [32];  // NOLINT(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays) — alignas required for _mm512_store_si512
+        // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays,modernize-avoid-c-arrays) — alignas required for _mm512_store_si512
+        alignas(64) uint16_t count_arr[32];
         _mm512_store_si512(reinterpret_cast<__m512i*>(count_arr), counts);
 
         for (size_t j = 0; j < 32; ++j) {

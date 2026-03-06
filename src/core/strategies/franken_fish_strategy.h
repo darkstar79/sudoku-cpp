@@ -83,7 +83,7 @@ private:
             case UnitType::Row:
                 for (size_t col = 0; col < BOARD_SIZE; ++col) {
                     if (board[unit.index][col] == EMPTY_CELL && candidates.isAllowed(unit.index, col, digit)) {
-                        out_cells.push_back(unit.index * BOARD_SIZE + col);
+                        out_cells.push_back((unit.index * BOARD_SIZE) + col);
                         ++count;
                     }
                 }
@@ -91,7 +91,7 @@ private:
             case UnitType::Col:
                 for (size_t row = 0; row < BOARD_SIZE; ++row) {
                     if (board[row][unit.index] == EMPTY_CELL && candidates.isAllowed(row, unit.index, digit)) {
-                        out_cells.push_back(row * BOARD_SIZE + unit.index);
+                        out_cells.push_back((row * BOARD_SIZE) + unit.index);
                         ++count;
                     }
                 }
@@ -102,7 +102,7 @@ private:
                 for (size_t r = start_row; r < start_row + BOX_SIZE; ++r) {
                     for (size_t c = start_col; c < start_col + BOX_SIZE; ++c) {
                         if (board[r][c] == EMPTY_CELL && candidates.isAllowed(r, c, digit)) {
-                            out_cells.push_back(r * BOARD_SIZE + c);
+                            out_cells.push_back((r * BOARD_SIZE) + c);
                             ++count;
                         }
                     }
@@ -375,6 +375,7 @@ private:
 
         // Collect pattern positions
         std::vector<Position> positions;
+        positions.reserve(base_cells.size());
         for (size_t cell : base_cells) {
             positions.push_back(Position{.row = cell / BOARD_SIZE, .col = cell % BOARD_SIZE});
         }

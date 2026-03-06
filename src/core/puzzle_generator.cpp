@@ -373,7 +373,6 @@ std::vector<std::vector<int>> PuzzleGenerator::removeCluesToTarget(const std::ve
     spdlog::debug("removeCluesToTarget: Attempting to reach {} clues (from {}) in {} attempts", target_clues,
                   current_clues, max_attempts);
 
-    std::vector<std::vector<int>> best_puzzle = solution;
     int best_clue_count = current_clues;
 
     for (int attempt = 0; attempt < max_attempts; ++attempt) {

@@ -233,8 +233,8 @@ void MainWindow::renderTrainingFeedback() {
 
     // Result header
     ImVec4 result_color{};
-    const char* result_label =
-        "";  // NOLINT(clang-analyzer-deadcode.DeadStores) — safe default if enum gains new values
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores) — safe default if enum gains new values
+    const char* result_label = "";
     switch (state.last_result) {
         case core::AnswerResult::Correct:
             result_color = ImVec4(0.0f, 0.6f, 0.0f, 1.0f);
