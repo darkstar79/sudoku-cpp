@@ -109,35 +109,31 @@ run_clang_tidy_check() {
     source_files=$(get_source_files)
     local file_count
     file_count=$(echo "$source_files" | wc -l)
-    
-    log_info "Running clang-tidy analysis on $file_count files..."
-    
+    local jobs
+    jobs=$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
+
+    log_info "Running clang-tidy analysis on $file_count files ($jobs parallel jobs)..."
+
     local tidy_args=(
         "-p=$BUILD_DIR"
         "--config-file=$TIDY_CONFIG"
     )
-    
+
     if [[ "${VERBOSE:-0}" == "1" ]]; then
         tidy_args+=("--explain-config")
     fi
-    
+
     local exit_code=0
-    echo "$source_files" | while read -r file; do
-        if [[ "${VERBOSE:-0}" == "1" ]]; then
-            log_info "Analyzing: $(basename "$file")"
-        fi
-        
-        if ! clang-tidy "${tidy_args[@]}" "$file"; then
-            exit_code=1
-        fi
-    done
-    
+    if ! echo "$source_files" | xargs -P "$jobs" -n 4 clang-tidy "${tidy_args[@]}"; then
+        exit_code=1
+    fi
+
     if [[ $exit_code -eq 0 ]]; then
         log_success "clang-tidy analysis completed successfully"
     else
         log_warning "clang-tidy found issues - see output above"
     fi
-    
+
     return $exit_code
 }
 
@@ -146,35 +142,42 @@ run_clang_tidy_fix() {
     source_files=$(get_source_files)
     local file_count
     file_count=$(echo "$source_files" | wc -l)
-    
+
     log_warning "Running clang-tidy with automatic fixes on $file_count files..."
     log_warning "This will modify your source files. Make sure you have committed your changes!"
-    
+
     read -p "Continue? (y/N): " -r
     if [[ ! $REPLY =~ ^[Yy]$ ]]; then
         log_info "Aborted by user"
         return 1
     fi
-    
+
     local tidy_args=(
         "-p=$BUILD_DIR"
         "--config-file=$TIDY_CONFIG"
         "--fix"
         "--fix-errors"
     )
-    
-    local fixed_files=0
-    echo "$source_files" | while read -r file; do
+
+    # Run sequentially — concurrent --fix can corrupt files
+    local exit_code=0
+    while IFS= read -r file; do
         if [[ "${VERBOSE:-0}" == "1" ]]; then
             log_info "Fixing: $(basename "$file")"
         fi
-        
-        if clang-tidy "${tidy_args[@]}" "$file"; then
-            ((fixed_files++))
+
+        if ! clang-tidy "${tidy_args[@]}" "$file"; then
+            exit_code=1
         fi
-    done
-    
-    log_success "clang-tidy fixes applied to $fixed_files files"
+    done <<< "$source_files"
+
+    if [[ $exit_code -eq 0 ]]; then
+        log_success "clang-tidy fixes applied successfully"
+    else
+        log_warning "clang-tidy fix completed with warnings"
+    fi
+
+    return $exit_code
 }
 
 generate_report() {
