@@ -149,13 +149,15 @@ run_clang_tidy_check() {
         "--config-file=$TIDY_CONFIG"
     )
 
-    # On LLVM < 19, Clang does not auto-detect GCC's C++ include paths, so
-    # it misses C++23 headers like <expected>. Inject them explicitly as
-    # -isystem (--extra-arg passes to cc1, not the driver, so --gcc-install-dir
-    # does not work here).
+    # On LLVM < 19, Clang may compile with a lower C++ standard than what
+    # compile_commands.json specifies (due to Conan toolchain interactions),
+    # causing std::expected's #if __cplusplus > 202002L guard to fail.
+    # Force C++23 explicitly and inject GCC's system include paths so
+    # <expected> and other C++23 headers are found and enabled.
     local llvm_major
     llvm_major=$(clang-tidy --version 2>/dev/null | grep -oP 'version \K[0-9]+' | head -1)
     if [[ "${llvm_major:-0}" -lt 19 ]]; then
+        tidy_args+=("--extra-arg=-std=c++23")
         while IFS= read -r inc_dir; do
             [[ -d "$inc_dir" ]] && tidy_args+=("--extra-arg=-isystem$inc_dir")
         done < <(g++ -v -x c++ /dev/null -o /dev/null 2>&1 | \
