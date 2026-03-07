@@ -64,8 +64,8 @@ graph.json
 # IDE files
 .vscode/
 .idea/
-.claude/
-docs/internal/
+.claude
+docs/internal
 *.swp
 *.swo
 *~
