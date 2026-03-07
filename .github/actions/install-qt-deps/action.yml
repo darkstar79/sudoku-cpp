@@ -1,0 +1,67 @@
+name: Install Qt6 + Build Dependencies
+description: Install system packages required for Qt6 builds on ubuntu-24.04
+
+runs:
+  using: composite
+  steps:
+    - name: Install system dependencies
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          build-essential \
+          cmake \
+          ninja-build \
+          ccache \
+          qt6-base-dev \
+          qt6-base-private-dev \
+          libgl1-mesa-dev \
+          libx11-dev \
+          libxrandr-dev \
+          libxinerama-dev \
+          libxcursor-dev \
+          libxi-dev \
+          libudev-dev \
+          libegl1-mesa-dev \
+          libdbus-1-dev \
+          libpulse-dev \
+          libwayland-dev \
+          libxkbcommon-dev \
+          libx11-xcb-dev \
+          libfontenc-dev \
+          libice-dev \
+          libsm-dev \
+          libxaw7-dev \
+          libxcomposite-dev \
+          libxdamage-dev \
+          libxkbfile-dev \
+          libxmu-dev \
+          libxmuu-dev \
+          libxpm-dev \
+          libxres-dev \
+          libxss-dev \
+          libxt-dev \
+          libxtst-dev \
+          libxv-dev \
+          libxxf86vm-dev \
+          libxcb-glx0-dev \
+          libxcb-render0-dev \
+          libxcb-render-util0-dev \
+          libxcb-xkb-dev \
+          libxcb-icccm4-dev \
+          libxcb-image0-dev \
+          libxcb-keysyms1-dev \
+          libxcb-randr0-dev \
+          libxcb-shape0-dev \
+          libxcb-sync-dev \
+          libxcb-xfixes0-dev \
+          libxcb-xinerama0-dev \
+          libxcb-dri3-dev \
+          libxcb-cursor-dev \
+          libxcb-dri2-0-dev \
+          libxcb-present-dev \
+          libxcb-composite0-dev \
+          libxcb-ewmh-dev \
+          libxcb-res0-dev \
+          libxcb-util-dev \
+          libxcb-util0-dev

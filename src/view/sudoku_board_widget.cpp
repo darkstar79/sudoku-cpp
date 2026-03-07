@@ -20,6 +20,7 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 
 #include <QFont>
 #include <QMouseEvent>
@@ -112,7 +113,7 @@ void SudokuBoardWidget::mousePressEvent(QMouseEvent* event) {
     auto col = static_cast<int>(mx / cs);
     auto row = static_cast<int>(my / cs);
 
-    if (row >= 0 && row < static_cast<int>(core::BOARD_SIZE) && col >= 0 && col < static_cast<int>(core::BOARD_SIZE)) {
+    if (row >= 0 && col >= 0 && std::cmp_less(row, core::BOARD_SIZE) && std::cmp_less(col, core::BOARD_SIZE)) {
         view_model_->selectCell(row, col);
         update();
     }
@@ -131,8 +132,8 @@ void SudokuBoardWidget::paintBackground(QPainter& painter, const QPointF& origin
 
 void SudokuBoardWidget::paintCell(QPainter& painter, const model::Cell& cell, size_t row, size_t col,
                                   const QPointF& origin, float cell_size, bool is_selected) {
-    QRectF cell_rect(origin.x() + static_cast<float>(col) * cell_size, origin.y() + static_cast<float>(row) * cell_size,
-                     cell_size, cell_size);
+    QRectF cell_rect(origin.x() + (static_cast<float>(col) * cell_size),
+                     origin.y() + (static_cast<float>(row) * cell_size), cell_size, cell_size);
 
     // Cell background
     painter.setPen(Qt::NoPen);

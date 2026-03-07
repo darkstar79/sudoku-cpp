@@ -29,7 +29,7 @@
 namespace sudoku::core {
 
 StatisticsManager::StatisticsManager(const std::string& stats_directory, std::shared_ptr<ITimeProvider> time_provider)
-    : time_provider_(std::move(time_provider)), next_session_id_(1), stats_cache_valid_(false) {
+    : time_provider_(std::move(time_provider)) {
     if (stats_directory.empty()) {
         // Use platform-appropriate default directory
         stats_directory_ =

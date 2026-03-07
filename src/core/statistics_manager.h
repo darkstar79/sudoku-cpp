@@ -82,11 +82,11 @@ private:
 
     // Active game sessions
     std::unordered_map<uint64_t, GameStats> active_sessions_;
-    uint64_t next_session_id_;
+    uint64_t next_session_id_{1};
 
     // Cached aggregate statistics
     mutable AggregateStats cached_stats_;
-    mutable bool stats_cache_valid_;
+    mutable bool stats_cache_valid_{false};
 
     // Helper methods
     uint64_t generateSessionId();

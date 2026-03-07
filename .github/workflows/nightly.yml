@@ -33,66 +33,11 @@ jobs:
 
       - name: Install system dependencies
         if: steps.check.outputs.skip != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            ccache \
-            clang-tidy \
-            qt6-base-dev \
-            qt6-base-private-dev \
-            libgl1-mesa-dev \
-            libx11-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libudev-dev \
-            libegl1-mesa-dev \
-            libdbus-1-dev \
-            libpulse-dev \
-            libwayland-dev \
-            libxkbcommon-dev \
-            libx11-xcb-dev \
-            libfontenc-dev \
-            libice-dev \
-            libsm-dev \
-            libxaw7-dev \
-            libxcomposite-dev \
-            libxdamage-dev \
-            libxkbfile-dev \
-            libxmu-dev \
-            libxmuu-dev \
-            libxpm-dev \
-            libxres-dev \
-            libxss-dev \
-            libxt-dev \
-            libxtst-dev \
-            libxv-dev \
-            libxxf86vm-dev \
-            libxcb-glx0-dev \
-            libxcb-render0-dev \
-            libxcb-render-util0-dev \
-            libxcb-xkb-dev \
-            libxcb-icccm4-dev \
-            libxcb-image0-dev \
-            libxcb-keysyms1-dev \
-            libxcb-randr0-dev \
-            libxcb-shape0-dev \
-            libxcb-sync-dev \
-            libxcb-xfixes0-dev \
-            libxcb-xinerama0-dev \
-            libxcb-dri3-dev \
-            libxcb-cursor-dev \
-            libxcb-dri2-0-dev \
-            libxcb-present-dev \
-            libxcb-composite0-dev \
-            libxcb-ewmh-dev \
-            libxcb-res0-dev \
-            libxcb-util-dev \
-            libxcb-util0-dev
+        uses: ./.github/actions/install-qt-deps
+
+      - name: Install clang-tidy
+        if: steps.check.outputs.skip != 'true'
+        run: sudo apt-get install -y clang-tidy
 
       - name: Install Conan
         if: steps.check.outputs.skip != 'true'
@@ -137,6 +82,31 @@ jobs:
       - name: Show ccache stats
         if: steps.check.outputs.skip != 'true'
         run: ccache --show-stats
+
+      - name: Debug compile commands
+        if: steps.check.outputs.skip != 'true'
+        run: |
+          CCJSON=$(find build/RelWithDebInfo -name compile_commands.json | head -1)
+          echo "compile_commands.json: $CCJSON"
+          python3 -c "
+import json, re, sys
+with open('$CCJSON') as f:
+    cmds = json.load(f)
+for c in cmds:
+    if 'encryption_manager.cpp' in c['file']:
+        cmd = c['command']
+        std = re.findall(r'-std=\S+', cmd)
+        print('std flags:', std)
+        print('cmd:', cmd[:600])
+        break
+else:
+    print('encryption_manager.cpp NOT FOUND in compile_commands.json')
+    print('Files:', [c[\"file\"].split(\"/\")[-1] for c in cmds[:5]])
+"
+          echo "GCC include paths:"
+          g++ -v -x c++ /dev/null -o /dev/null 2>&1 | awk '/#include <...> search starts here:/{f=1;next} /End of search list/{f=0} f'
+          echo "clang-tidy version:"
+          clang-tidy --version
 
       - name: Run static analysis
         if: steps.check.outputs.skip != 'true'
@@ -184,65 +154,7 @@ jobs:
 
       - name: Install system dependencies
         if: steps.check.outputs.skip != 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            cmake \
-            ninja-build \
-            ccache \
-            qt6-base-dev \
-            qt6-base-private-dev \
-            libgl1-mesa-dev \
-            libx11-dev \
-            libxrandr-dev \
-            libxinerama-dev \
-            libxcursor-dev \
-            libxi-dev \
-            libudev-dev \
-            libegl1-mesa-dev \
-            libdbus-1-dev \
-            libpulse-dev \
-            libwayland-dev \
-            libxkbcommon-dev \
-            libx11-xcb-dev \
-            libfontenc-dev \
-            libice-dev \
-            libsm-dev \
-            libxaw7-dev \
-            libxcomposite-dev \
-            libxdamage-dev \
-            libxkbfile-dev \
-            libxmu-dev \
-            libxmuu-dev \
-            libxpm-dev \
-            libxres-dev \
-            libxss-dev \
-            libxt-dev \
-            libxtst-dev \
-            libxv-dev \
-            libxxf86vm-dev \
-            libxcb-glx0-dev \
-            libxcb-render0-dev \
-            libxcb-render-util0-dev \
-            libxcb-xkb-dev \
-            libxcb-icccm4-dev \
-            libxcb-image0-dev \
-            libxcb-keysyms1-dev \
-            libxcb-randr0-dev \
-            libxcb-shape0-dev \
-            libxcb-sync-dev \
-            libxcb-xfixes0-dev \
-            libxcb-xinerama0-dev \
-            libxcb-dri3-dev \
-            libxcb-cursor-dev \
-            libxcb-dri2-0-dev \
-            libxcb-present-dev \
-            libxcb-composite0-dev \
-            libxcb-ewmh-dev \
-            libxcb-res0-dev \
-            libxcb-util-dev \
-            libxcb-util0-dev
+        uses: ./.github/actions/install-qt-deps
 
       - name: Install Conan
         if: steps.check.outputs.skip != 'true'

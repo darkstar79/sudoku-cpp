@@ -53,12 +53,29 @@ function ensure_debug_build() {
     echo -e "${BLUE}Ensuring debug build for coverage analysis...${NC}"
 
     cd "$PROJECT_ROOT"
-    cmake --preset conan-relwithdebinfo || {
+
+    # Install Conan dependencies for RelWithDebInfo
+    conan install . --build=missing -s build_type=RelWithDebInfo || {
+        echo -e "${RED}Failed to install Conan dependencies${NC}"
+        exit 1
+    }
+
+    # Bypass cmake --preset to avoid duplicate-preset errors when multiple
+    # Conan builds coexist (each defines 'conan-release' in their generators,
+    # causing CMake to reject all presets). Use the toolchain file directly.
+    local cmake_build_dir="${BUILD_DIR}/build/RelWithDebInfo"
+    local toolchain="${BUILD_DIR}/generators/conan_toolchain.cmake"
+
+    cmake -S . -B "${cmake_build_dir}" \
+        -G Ninja \
+        -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DCMAKE_TOOLCHAIN_FILE="${toolchain}" \
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON || {
         echo -e "${RED}Failed to configure RelWithDebInfo build${NC}"
         exit 1
     }
 
-    cmake --build --preset conan-relwithdebinfo || {
+    cmake --build "${cmake_build_dir}" || {
         echo -e "${RED}Failed to build project${NC}"
         exit 1
     }

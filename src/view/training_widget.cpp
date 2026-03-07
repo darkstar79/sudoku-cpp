@@ -118,8 +118,8 @@ void TrainingWidget::buildTechniqueSelectionPage() {
 
     for (const auto& group : groups) {
         auto* group_box = new QGroupBox(group.name);
-        auto* group_layout =
-            new QVBoxLayout(group_box);  // NOLINT(cppcoreguidelines-owning-memory) — Qt parent takes ownership
+        auto* group_layout = new QVBoxLayout(
+            group_box);  // NOLINT(cppcoreguidelines-owning-memory,clang-analyzer-cplusplus.NewDeleteLeaks) — Qt parent takes ownership
 
         for (auto technique : group.techniques) {
             auto name = core::getTechniqueName(technique);
@@ -137,7 +137,8 @@ void TrainingWidget::buildTechniqueSelectionPage() {
             group_layout->addWidget(btn);
         }
 
-        layout->addWidget(group_box);
+        layout->addWidget(
+            group_box);  // NOLINT(clang-analyzer-cplusplus.NewDeleteLeaks) — group_layout owned by group_box
     }
 
     auto* back_btn = new QPushButton("Back to Game");

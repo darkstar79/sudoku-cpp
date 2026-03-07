@@ -51,8 +51,8 @@ struct GenerationSettings {
 struct Puzzle {
     std::vector<std::vector<int>> board;     // 9x9 puzzle with clues
     std::vector<std::vector<int>> solution;  // 9x9 complete solution
-    Difficulty difficulty;
-    uint32_t seed;
+    Difficulty difficulty{Difficulty::Easy};
+    uint32_t seed{0};
     int clue_count{0};
     int rating{0};                                   // Sudoku Explainer rating (0 = not rated yet)
     std::set<SolvingTechnique> required_techniques;  // Logical techniques needed to solve
