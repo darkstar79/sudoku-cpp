@@ -122,8 +122,16 @@ ensure_build_exists() {
 }
 
 get_source_files() {
-    find "$PROJECT_ROOT/src" -name "*.cpp" -o -name "*.h" | \
-        sort
+    # clang-tidy < 19 falls back to C++14 default for headers not in
+    # compile_commands.json, breaking std::expected. Only include headers
+    # on LLVM 19+ where header lookup is smarter.
+    local llvm_major
+    llvm_major=$(clang-tidy --version 2>/dev/null | grep -oP 'version \K[0-9]+' | head -1)
+    if [[ "${llvm_major:-0}" -ge 19 ]]; then
+        find "$PROJECT_ROOT/src" \( -name "*.cpp" -o -name "*.h" \) | sort
+    else
+        find "$PROJECT_ROOT/src" -name "*.cpp" | sort
+    fi
 }
 
 run_clang_tidy_check() {
