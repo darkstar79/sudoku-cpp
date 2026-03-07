@@ -38,9 +38,10 @@ jobs:
       - name: Install clang-tidy
         if: steps.check.outputs.skip != 'true'
         run: |
-          sudo apt-get install -y clang-tidy-19 || sudo apt-get install -y clang-tidy
-          if command -v clang-tidy-19 &>/dev/null; then
-            sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-19 100
+          if sudo apt-get install -y clang-tidy-19; then
+            sudo ln -sf /usr/bin/clang-tidy-19 /usr/local/bin/clang-tidy
+          else
+            sudo apt-get install -y clang-tidy
           fi
 
       - name: Install Conan
