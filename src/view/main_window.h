@@ -137,6 +137,7 @@ private:
     void showLoadDialog();
     void showStatisticsDialog();
     void showAboutDialog();
+    void showThirdPartyLicensesDialog();
     void showTechniquesDialog();
 
     // CSV export

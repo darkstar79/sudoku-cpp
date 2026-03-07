@@ -41,6 +41,7 @@
 #include <QPushButton>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -184,6 +185,7 @@ void MainWindow::setupMenuBar() {
     });
     help_menu->addSeparator();
     help_menu->addAction("&About", this, &MainWindow::showAboutDialog);
+    help_menu->addAction("&Third-Party Licenses", this, &MainWindow::showThirdPartyLicensesDialog);
 }
 
 void MainWindow::setupToolBar() {
@@ -612,6 +614,58 @@ void MainWindow::showAboutDialog() {
                        "Sudoku Game\n\nA feature-rich offline Sudoku application.\n\n"
                        "Built with:\n- Qt6\n- C++23\n\n"
                        "Copyright (C) 2025-2026 Alexander Bendlin");
+}
+
+void MainWindow::showThirdPartyLicensesDialog() {
+    auto* dialog = new QDialog(this);
+    dialog->setWindowTitle("Third-Party Licenses");
+    dialog->resize(600, 480);
+
+    auto* text = new QTextEdit(dialog);
+    text->setReadOnly(true);
+    text->setLineWrapMode(QTextEdit::WidgetWidth);
+    text->setHtml("<h3>Third-Party Libraries</h3>"
+                  "<p>This application is built with the following open-source libraries:</p>"
+
+                  "<h4>Qt6</h4>"
+                  "<p>Version: 6.x &nbsp;|&nbsp; License: LGPL 3.0<br>"
+                  "Copyright &copy; 2024 The Qt Company Ltd<br>"
+                  "<a href=\"https://www.qt.io/\">https://www.qt.io/</a></p>"
+
+                  "<h4>spdlog</h4>"
+                  "<p>Version: 1.15.3 &nbsp;|&nbsp; License: MIT<br>"
+                  "Copyright &copy; 2016 Gabi Melman<br>"
+                  "Fast C++ logging library. Also bundles <b>fmt</b> (MIT) for string formatting.<br>"
+                  "<a href=\"https://github.com/gabime/spdlog\">https://github.com/gabime/spdlog</a></p>"
+
+                  "<h4>yaml-cpp</h4>"
+                  "<p>Version: 0.8.0 &nbsp;|&nbsp; License: MIT<br>"
+                  "Copyright &copy; 2008-2015 Jesse Beder<br>"
+                  "YAML parser and emitter for C++ (used for save-game serialization).<br>"
+                  "<a href=\"https://github.com/jbeder/yaml-cpp\">https://github.com/jbeder/yaml-cpp</a></p>"
+
+                  "<h4>libsodium</h4>"
+                  "<p>Version: 1.0.18 &nbsp;|&nbsp; License: ISC<br>"
+                  "Copyright &copy; 2013-2024 Frank Denis<br>"
+                  "Modern cryptographic library (used for save-game encryption).<br>"
+                  "<a href=\"https://libsodium.gitbook.io/\">https://libsodium.gitbook.io/</a></p>"
+
+                  "<h4>zlib</h4>"
+                  "<p>Version: 1.3.1 &nbsp;|&nbsp; License: zlib License<br>"
+                  "Compression library (used for save-game compression).<br>"
+                  "<a href=\"https://zlib.net/\">https://zlib.net/</a></p>"
+
+                  "<p><i>Full license texts and compatibility notes are in THIRD_PARTY_LICENSES.md "
+                  "distributed with this software.</i></p>");
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Close, dialog);
+    connect(buttons, &QDialogButtonBox::rejected, dialog, &QDialog::accept);
+
+    auto* layout = new QVBoxLayout(dialog);
+    layout->addWidget(text);
+    layout->addWidget(buttons);
+
+    dialog->exec();
 }
 
 void MainWindow::showTechniquesDialog() {
