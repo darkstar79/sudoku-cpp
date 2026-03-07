@@ -88,21 +88,8 @@ jobs:
         run: |
           CCJSON=$(find build/RelWithDebInfo -name compile_commands.json | head -1)
           echo "compile_commands.json: $CCJSON"
-          python3 -c "
-import json, re, sys
-with open('$CCJSON') as f:
-    cmds = json.load(f)
-for c in cmds:
-    if 'encryption_manager.cpp' in c['file']:
-        cmd = c['command']
-        std = re.findall(r'-std=\S+', cmd)
-        print('std flags:', std)
-        print('cmd:', cmd[:600])
-        break
-else:
-    print('encryption_manager.cpp NOT FOUND in compile_commands.json')
-    print('Files:', [c[\"file\"].split(\"/\")[-1] for c in cmds[:5]])
-"
+          grep -o '"command":"[^"]*encryption_manager[^"]*"' "$CCJSON" | \
+            grep -o '\-std=[^ ]*' | head -5 || echo "encryption_manager.cpp not found in compile_commands.json"
           echo "GCC include paths:"
           g++ -v -x c++ /dev/null -o /dev/null 2>&1 | awk '/#include <...> search starts here:/{f=1;next} /End of search list/{f=0} f'
           echo "clang-tidy version:"
