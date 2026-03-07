@@ -37,7 +37,11 @@ jobs:
 
       - name: Install clang-tidy
         if: steps.check.outputs.skip != 'true'
-        run: sudo apt-get install -y clang-tidy
+        run: |
+          sudo apt-get install -y clang-tidy-19 || sudo apt-get install -y clang-tidy
+          if command -v clang-tidy-19 &>/dev/null; then
+            sudo update-alternatives --install /usr/bin/clang-tidy clang-tidy /usr/bin/clang-tidy-19 100
+          fi
 
       - name: Install Conan
         if: steps.check.outputs.skip != 'true'
@@ -88,11 +92,13 @@ jobs:
         run: |
           CCJSON=$(find build/RelWithDebInfo -name compile_commands.json | head -1)
           echo "compile_commands.json: $CCJSON"
-          grep -o '"command":"[^"]*encryption_manager[^"]*"' "$CCJSON" | \
-            grep -o '\-std=[^ ]*' | head -5 || echo "encryption_manager.cpp not found in compile_commands.json"
-          echo "GCC include paths:"
+          echo "--- encryption_manager compile command (first 400 chars) ---"
+          grep -o '"command":"[^"]*encryption_manager[^"]*"' "$CCJSON" | cut -c1-400 || echo "NOT FOUND"
+          echo "--- -std= flags ---"
+          grep -o '"command":"[^"]*encryption_manager[^"]*"' "$CCJSON" | grep -oE '\-std=[^ ]+' || echo "no -std= flag found"
+          echo "--- GCC include paths ---"
           g++ -v -x c++ /dev/null -o /dev/null 2>&1 | awk '/#include <...> search starts here:/{f=1;next} /End of search list/{f=0} f'
-          echo "clang-tidy version:"
+          echo "--- clang-tidy version ---"
           clang-tidy --version
 
       - name: Run static analysis
