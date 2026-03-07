@@ -64,7 +64,7 @@ The project includes compiler-versioned Conan profiles for reproducible builds:
 - **GCC 15:** `gcc-15-release`, `gcc-15-debug`, `gcc-15-relwithdebinfo`
 - **Clang 21:** `clang-21-release`, `clang-21-debug`, `clang-21-relwithdebinfo`
 
-See [CONAN_PROFILES.md](CONAN_PROFILES.md) for detailed profile documentation and usage examples.
+See [CONAN_PROFILES.md](docs/CONAN_PROFILES.md) for detailed profile documentation and usage examples.
 
 ## Building the Project
 
