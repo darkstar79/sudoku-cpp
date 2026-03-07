@@ -531,3 +531,29 @@ Format specific files instead of entire project:
 - [C++ Core Guidelines](https://isocpp.github.io/CppCoreGuidelines/)
 - [clang-format Documentation](https://clang.llvm.org/docs/ClangFormat.html)
 - [clang-tidy Checks](https://clang.llvm.org/extra/clang-tidy/checks/list.html)
+
+## Future Improvements
+
+### Ubuntu 26.04 LTS Migration (April 2026)
+
+When GitHub Actions adds `ubuntu-26.04` runners (Ubuntu 26.04 LTS "Resolute Raccoon",
+release April 23, 2026), the following CI/tooling simplifications become possible:
+
+**Ubuntu 26.04 default toolchain:**
+- GCC 15 (default)
+- LLVM 21 / clang-tidy-21 (full C++23 support out of the box)
+
+**Changes to make after migrating `runs-on: ubuntu-26.04`:**
+
+1. **`nightly.yml`** — Remove the `Install clang-tidy` step that installs
+   `clang-tidy-19` and symlinks it. `clang-tidy` (v21) will be available
+   via `sudo apt-get install -y clang-tidy` directly.
+
+2. **`scripts/tidy.sh`** — Remove the LLVM version detection block in both
+   `get_source_files()` and `run_clang_tidy_check()`. The `llvm_major < 19`
+   workarounds (GCC include path injection, header file exclusion) are no
+   longer needed. Simplify both functions to always include `.h` files and
+   skip the `--extra-arg=-std=c++23` / `-isystem` injection.
+
+3. **`.clang-tidy` / `conanfile.py`** — No changes needed; C++23 settings
+   remain correct.
