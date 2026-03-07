@@ -149,6 +149,18 @@ run_clang_tidy_check() {
         "--config-file=$TIDY_CONFIG"
     )
 
+    # On LLVM < 19, Clang may not auto-detect the GCC installation, causing
+    # it to miss GCC 13's C++23 headers (e.g. <expected>). Point it explicitly.
+    local llvm_major
+    llvm_major=$(clang-tidy --version 2>/dev/null | grep -oP 'version \K[0-9]+' | head -1)
+    if [[ "${llvm_major:-0}" -lt 19 ]]; then
+        local gcc_install
+        gcc_install=$(g++ --print-file-name=. 2>/dev/null | xargs dirname 2>/dev/null)
+        if [[ -d "${gcc_install:-}" ]]; then
+            tidy_args+=("--extra-arg=--gcc-install-dir=$gcc_install")
+        fi
+    fi
+
     if [[ "${VERBOSE:-0}" == "1" ]]; then
         tidy_args+=("--explain-config")
     fi
