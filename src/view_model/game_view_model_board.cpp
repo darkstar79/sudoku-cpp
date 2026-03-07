@@ -67,20 +67,26 @@ void GameViewModel::enterNumber(int number) {
     move.previous_notes = cell.notes;
     move.previous_hint_revealed = cell.is_hint_revealed;
 
-    // Validate move - but allow incorrect numbers to be placed
-    auto validation_result = validator_->validateMove(current_state.extractNumbers(), move);
-
+    // Check against solution board to detect mistakes (not just conflicts)
     bool is_mistake = false;
-    if (validation_result) {
-        is_mistake = !*validation_result;  // Valid move but incorrect number
+    const auto& solution = current_state.getSolutionBoard();
+    if (!solution.empty()) {
+        is_mistake = (solution[pos.row][pos.col] != number);
     } else {
-        // Even if validation fails, allow the move but mark as mistake
-        is_mistake = true;
+        // Fallback: conflict-only check if no solution available (e.g. loaded save)
+        auto validation_result = validator_->validateMove(current_state.extractNumbers(), move);
+        if (validation_result) {
+            is_mistake = !*validation_result;
+        } else {
+            is_mistake = true;
+        }
     }
 
     // Apply move
     applyMove(move);
     recordMove(move, is_mistake);
+
+    spdlog::debug("Placed {} at ({}, {}){}", number, pos.row, pos.col, is_mistake ? " [MISTAKE]" : "");
 
     // Check for completion
     checkGameCompletion();
@@ -190,6 +196,30 @@ void GameViewModel::recomputeAutoNotes() {
             }
         });
     });
+}
+
+bool GameViewModel::hasBoardErrors() const {
+    const auto& state = gameState.get();
+    auto board = state.extractNumbers();
+
+    // Check for structural conflicts (duplicates in row/col/box)
+    if (!validator_->findConflicts(board).empty()) {
+        return true;
+    }
+
+    // Check placed values against solution board
+    const auto& solution = state.getSolutionBoard();
+    if (!solution.empty()) {
+        bool has_wrong = false;
+        core::forEachCell([&](size_t row, size_t col) {
+            if (board[row][col] != 0 && !state.getCell(row, col).is_given && board[row][col] != solution[row][col]) {
+                has_wrong = true;
+            }
+        });
+        return has_wrong;
+    }
+
+    return false;
 }
 
 void GameViewModel::updateConflictHighlighting() {

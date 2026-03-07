@@ -10,8 +10,9 @@ This project is licensed under the **GNU General Public License v3.0 (GPLv3)** (
 
 | License Type | Count | Libraries |
 |-------------|-------|-----------|
-| MIT | 4 | ImGui, spdlog, fmt (via spdlog), yaml-cpp |
-| zlib | 2 | SDL3, zlib |
+| MIT | 3 | spdlog, fmt (via spdlog), yaml-cpp |
+| LGPL 3.0 | 1 | Qt6 |
+| zlib | 1 | zlib |
 | ISC | 1 | libsodium |
 | BSD 3-Clause | 1 | CMake |
 | Apache 2.0 | 1 | Ninja |
@@ -23,34 +24,15 @@ This project is licensed under the **GNU General Public License v3.0 (GPLv3)** (
 
 ## Runtime Dependencies
 
-### SDL3 (Simple DirectMedia Layer 3)
+### Qt6
 
-- **Version:** 3.2.18
-- **License:** zlib License
-- **Purpose:** Cross-platform graphics context, window management, and input handling
-- **Homepage:** https://www.libsdl.org/
-- **License URL:** https://github.com/libsdl-org/SDL/blob/main/LICENSE.txt
+- **Version:** 6.x (system package)
+- **License:** LGPL 3.0
+- **Purpose:** Cross-platform GUI framework (Widgets module)
+- **Homepage:** https://www.qt.io/
+- **License URL:** https://doc.qt.io/qt-6/lgpl.html
 
-**License Summary:** Permissive license allowing commercial use, modification, and distribution.
-
----
-
-### Dear ImGui
-
-- **Version:** 1.92.0
-- **License:** MIT License
-- **Purpose:** Immediate-mode graphical user interface framework
-- **Homepage:** https://github.com/ocornut/imgui
-- **License URL:** https://github.com/ocornut/imgui/blob/master/LICENSE.txt
-
-**License Summary:** Permissive MIT license. Requires attribution.
-
-**Note:** This project includes unmodified ImGui backend implementations:
-- `src/imgui_backends/imgui_impl_sdl3.h/cpp` - SDL3 platform backend
-- `src/imgui_backends/imgui_impl_opengl3.h/cpp` - OpenGL3 renderer backend
-- `src/imgui_backends/imgui_impl_opengl3_loader.h` - OpenGL function loader
-
-All backends are MIT licensed and sourced from the official ImGui project.
+**License Summary:** LGPL allows use in proprietary software when dynamically linked. Must ship Qt libraries alongside binary or allow relinking.
 
 ---
 
@@ -215,8 +197,7 @@ All backends are MIT licensed and sourced from the official ImGui project.
 
 | Dependency | License | Commercial Use | Requires Attribution | Copyleft | Compatible with GPLv3 |
 |-----------|---------|----------------|---------------------|----------|-------------------|
-| SDL3 | zlib | ✅ | ✅ | ❌ | ✅ |
-| ImGui | MIT | ✅ | ✅ | ❌ | ✅ |
+| Qt6 | LGPL 3.0 | ✅ | ✅ | ⚠️ (weak) | ✅ |
 | spdlog | MIT | ✅ | ✅ | ❌ | ✅ |
 | fmt | MIT | ✅ | ✅ | ❌ | ✅ |
 | yaml-cpp | MIT | ✅ | ✅ | ❌ | ✅ |
@@ -232,11 +213,10 @@ All backends are MIT licensed and sourced from the official ImGui project.
 
 The following libraries require attribution in distributed binaries:
 
-1. **SDL3** - Copyright (C) 1997-2024 Sam Lantinga
-2. **Dear ImGui** - Copyright (C) 2014-2024 Omar Cornut
-3. **spdlog** - Copyright (C) 2016 Gabi Melman
-4. **yaml-cpp** - Copyright (C) 2008-2015 Jesse Beder
-5. **libsodium** - Copyright (C) 2013-2024 Frank Denis
+1. **Qt6** - Copyright (C) 2024 The Qt Company Ltd
+2. **spdlog** - Copyright (C) 2016 Gabi Melman
+3. **yaml-cpp** - Copyright (C) 2008-2015 Jesse Beder
+4. **libsodium** - Copyright (C) 2013-2024 Frank Denis
 
 **Recommended Attribution:**
 Include this THIRD_PARTY_LICENSES.md file in binary distributions or display attribution in the application's "About" dialog.

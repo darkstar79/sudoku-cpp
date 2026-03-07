@@ -26,15 +26,13 @@ list(FILTER LIB_SOURCES EXCLUDE REGEX ".*main_new\\.cpp$")
 list(FILTER LIB_SOURCES EXCLUDE REGEX ".*simd_constraint_state\\.cpp$")
 list(FILTER LIB_SOURCES EXCLUDE REGEX ".*simd_avx512_ops\\.cpp$")
 
-# Remove ImGui backend files from library sources
-list(FILTER LIB_SOURCES EXCLUDE REGEX ".*imgui_impl_.*\\.cpp$")
-
-# Remove view and infrastructure files that depend on external libraries
-list(FILTER LIB_SOURCES EXCLUDE REGEX ".*/main_window[^/]*\\.cpp$")
+# Remove view files that depend on Qt6 (not needed for unit tests)
+list(FILTER LIB_SOURCES EXCLUDE REGEX ".*/view/.*\\.(cpp|h)$")
 list(FILTER LIB_SOURCES EXCLUDE REGEX ".*log_manager\\.cpp$")
 
-# Create a library from source files for testing
+# Create a library from source files for testing (no Qt6 dependency)
 add_library(sudoku_lib STATIC ${LIB_SOURCES})
+set_target_properties(sudoku_lib PROPERTIES AUTOMOC OFF AUTOUIC OFF AUTORCC OFF)
 
 # Add include directories to library
 target_include_directories(sudoku_lib PUBLIC
@@ -46,8 +44,6 @@ target_include_directories(sudoku_lib PUBLIC
 target_link_libraries(sudoku_lib PUBLIC
     simd_avx2
     simd_avx512
-    SDL3::SDL3
-    imgui::imgui
     spdlog::spdlog
     yaml-cpp::yaml-cpp
     ZLIB::ZLIB
@@ -87,6 +83,28 @@ add_subdirectory(integration)
 
 # Benchmarks
 add_subdirectory(benchmarks)
+
+# Qt6 UI tests (optional, requires -DSUDOKU_ENABLE_UI_TESTS=ON)
+if(SUDOKU_ENABLE_UI_TESTS)
+    file(GLOB VIEW_SOURCES
+        "${CMAKE_SOURCE_DIR}/src/view/*.cpp"
+        "${CMAKE_SOURCE_DIR}/src/view/*.h"
+    )
+
+    add_library(sudoku_view_lib STATIC ${VIEW_SOURCES})
+    set_target_properties(sudoku_view_lib PROPERTIES AUTOMOC ON)
+    target_include_directories(sudoku_view_lib PUBLIC
+        ${CMAKE_SOURCE_DIR}/include
+        ${CMAKE_SOURCE_DIR}/src
+    )
+    target_link_libraries(sudoku_view_lib PUBLIC
+        sudoku_lib
+        Qt6::Widgets
+    )
+    target_compile_definitions(sudoku_view_lib PUBLIC SUDOKU_UI_TESTING)
+
+    add_subdirectory(ui)
+endif()
 
 # Profiling executable (for callgrind/valgrind)
 add_executable(profile_puzzle_generation
@@ -163,7 +181,7 @@ if((CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebIn
                 --exclude='${CMAKE_SOURCE_DIR}/build/.*'
                 --exclude='${CMAKE_SOURCE_DIR}/.*conan.*'
                 --exclude='/usr/.*'
-                --exclude='.*imgui.*'
+
                 --print-summary
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             DEPENDS unit_tests integration_tests
@@ -177,7 +195,7 @@ if((CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebIn
                 --exclude='${CMAKE_SOURCE_DIR}/build/.*'
                 --exclude='${CMAKE_SOURCE_DIR}/.*conan.*'
                 --exclude='/usr/.*'
-                --exclude='.*imgui.*'
+
                 --html --html-details
                 --output coverage_report.html
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -192,7 +210,7 @@ if((CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebIn
                 --exclude='${CMAKE_SOURCE_DIR}/build/.*'
                 --exclude='${CMAKE_SOURCE_DIR}/.*conan.*'
                 --exclude='/usr/.*'
-                --exclude='.*imgui.*'
+
                 --xml --output coverage.xml
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             DEPENDS unit_tests integration_tests
@@ -206,7 +224,7 @@ if((CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebIn
                 --exclude='${CMAKE_SOURCE_DIR}/build/.*'
                 --exclude='${CMAKE_SOURCE_DIR}/.*conan.*'
                 --exclude='/usr/.*'
-                --exclude='.*imgui.*'
+
                 --json --output coverage.json
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
             DEPENDS unit_tests integration_tests
@@ -224,7 +242,7 @@ if((CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebIn
     if(GCOV_PATH AND LCOV_PATH AND GENHTML_PATH)
         add_custom_target(coverage-lcov
             COMMAND ${LCOV_PATH} --directory . --capture --output-file coverage.info
-            COMMAND ${LCOV_PATH} --remove coverage.info '/usr/*' '*/tests/*' '*/build/*' '*/.*conan.*' '*imgui*' --output-file coverage.info
+            COMMAND ${LCOV_PATH} --remove coverage.info '/usr/*' '*/tests/*' '*/build/*' '*/.*conan.*' --output-file coverage.info
             COMMAND ${LCOV_PATH} --list coverage.info
             COMMAND ${GENHTML_PATH} coverage.info --output-directory coverage_html_lcov
             WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

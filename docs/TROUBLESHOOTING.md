@@ -12,7 +12,6 @@ This document provides solutions to common errors, build issues, and agent-speci
 - [Conan Dependency Errors](#conan-dependency-errors)
 - [Coverage Configuration Issues](#coverage-configuration-issues)
 - [Test Failures](#test-failures)
-- [ImGui API Pitfalls](#imgui-api-pitfalls)
 - [SaveManager Encryption](#savemanager-encryption)
 - [Agent-Specific Failure Modes](#agent-specific-failure-modes)
 - [Diagnostic Commands](#diagnostic-commands)
@@ -24,13 +23,10 @@ This document provides solutions to common errors, build issues, and agent-speci
 
 | Error | Cause | Solution |
 |-------|-------|----------|
-| `undefined reference to SDL_*` | Wrong Conan profile | `conan install --profile=conan-linux-x86_64` |
 | Test failures with timing issues | Using Release build for tests | Switch to Debug: `cmake --build build/Debug` |
-| Segfault in ImGui | Incomplete struct initialization | Check all struct fields use designated initializers |
 | Coverage drop | New code without tests | Run `./scripts/coverage.sh html` to identify gaps |
 | `cannot find -lsodium` | Conan cache corrupted | `conan remove "*" -c && conan install` |
 | Linker errors after dependency update | Stale CMake cache | `rm -rf build && cmake --preset conan-release` |
-| clang-tidy errors on third-party code | Analyzing `imgui_backends/` | Excluded in `.clang-tidy`, check your command |
 | `No such file or directory` for headers | New files not detected by CMake | Reconfigure: `cmake --preset conan-debug` |
 | Compilation errors after adding new files | GLOB didn't pick up new files | Reconfigure: `cmake --preset conan-debug` |
 | `undefined reference` to new function | New .cpp file not compiled | Reconfigure: `cmake --preset conan-debug` |
@@ -144,8 +140,7 @@ cmake --preset conan-debug
 ### 2. Wrong Conan Profile
 
 **Symptoms:**
-- `undefined reference to SDL_*`
-- Linker errors for imgui, yaml-cpp, etc.
+- Linker errors for yaml-cpp, spdlog, etc.
 
 **Cause:** Using wrong profile for your platform.
 
@@ -312,47 +307,6 @@ REQUIRE(isValidBoard(board));  // Ensure Sudoku rules satisfied
 5. **If truly flaky:** Fix the test, don't ignore it
 
 **Rule:** Never assume "flaky" without thorough investigation.
-
----
-
-## ImGui API Pitfalls
-
-### 1. Incomplete Struct Initialization
-
-**Problem:** ImGui structs not fully initialized → segfault.
-
-**Symptoms:**
-- Segfault in ImGui rendering code
-- Undefined behavior with ImGui widgets
-
-**Cause:** ImGui APIs expect all struct fields initialized.
-
-**Solution:** Use designated initializers:
-```cpp
-// ✅ GOOD: All fields explicit
-ImGuiWindowFlags flags = ImGuiWindowFlags_NoResize |
-                         ImGuiWindowFlags_NoMove;
-
-ImVec2 pos{.x = 100.0F, .y = 100.0F};
-ImVec2 size{.x = 800.0F, .y = 600.0F};
-```
-
-```cpp
-// ❌ BAD: Uninitialized fields
-ImVec2 pos;  // x and y are uninitialized
-pos.x = 100.0F;  // Forgot to set y
-ImGui::SetWindowPos("Window", pos);  // ❌ Undefined behavior
-```
-
----
-
-### 2. ImGui API ≠ STL Containers
-
-**Problem:** Assuming ImGui APIs behave like STL.
-
-**Solution:** **Always check [ImGui documentation](https://github.com/ocornut/imgui)** for API contracts.
-
-**Example:** `ImGui::InputText()` doesn't resize `std::string` automatically - must use helper or buffer.
 
 ---
 

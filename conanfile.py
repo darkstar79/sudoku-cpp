@@ -32,9 +32,8 @@ class SudokuConan(ConanFile):
             self.options.rm_safe("fPIC")
     
     def requirements(self):
-        # Core dependencies - updated to newer versions to fix gettext/0.21 issues
-        self.requires("sdl/3.2.18")
-        self.requires("imgui/1.92.0")
+        # Core dependencies
+        # Note: Qt6 is provided by system packages (dnf install qt6-qtbase-devel)
         self.requires("spdlog/1.15.3")
         self.requires("yaml-cpp/0.8.0")
         self.requires("zlib/1.3.1")  # For save file compression
@@ -73,11 +72,8 @@ class SudokuConan(ConanFile):
         
         tc.generate()
         
-        # Copy ImGui backend files for SDL3 integration
-        # Note: ImGui package structure varies, so we use a simple approach
-        # The backend files will be manually maintained for now
-        self.output.info("ImGui SDL3 backend files should be manually copied to src/imgui_backends/")
-        self.output.info("Backend files needed: imgui_impl_sdl3.h/cpp, imgui_impl_opengl3.h/cpp, imgui_impl_opengl3_loader.h")
+        # Qt6 is provided by system packages, no Conan integration needed
+        self.output.info("Qt6 is expected from system packages (qt6-qtbase-devel)")
 
     def build(self):
         cmake = CMake(self)
@@ -91,18 +87,5 @@ class SudokuConan(ConanFile):
 
     # def configure_options(self):
     #     # Configure dependency options for single executable
-    #     self.options["sdl"].shared = False
-    #     self.options["imgui"].shared = False
     #     self.options["spdlog"].shared = False
     #     self.options["yaml-cpp"].shared = False
-    #     # self.options["openssl"].shared = False  # Temporarily disabled
-    #     
-    #     # ImGui backend configuration
-    #     self.options["imgui"].with_sdl = True
-    #     self.options["imgui"].with_opengl3 = True
-    #     
-    #     # Disable OpenSSL in pulseaudio to avoid Perl FindBin issues
-    #     self.options["pulseaudio"].with_openssl = False
-    #     
-    #     # Try to avoid problematic dependencies
-    #     self.options["spdlog"].no_exceptions = False

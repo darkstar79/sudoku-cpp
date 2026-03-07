@@ -46,7 +46,7 @@ tools.build:cflags=["-g", "-O0", "-fno-omit-frame-pointer"]
 ```
 
 **Key Settings:**
-- `build_type=Debug` → Conan builds ALL dependencies (SDL3, ImGui, yaml-cpp, spdlog, Catch2, libsodium) with debug symbols
+- `build_type=Debug` → Conan builds ALL dependencies (yaml-cpp, spdlog, Catch2, libsodium) with debug symbols
 - `-g` → Full debug symbols for GDB/LLDB
 - `-O0` → No optimization (accurate debugging, variables not optimized away)
 - `-fno-omit-frame-pointer` → Complete stack traces in debugger
@@ -80,7 +80,7 @@ GCC/libstdc++ provides `-D_GLIBCXX_ASSERTIONS` in Debug mode:
 ### 2. Debug Symbols in Dependencies
 
 Can step INTO library code with full source visibility:
-- Debug SDL3, ImGui, yaml-cpp code with GDB
+- Debug yaml-cpp, spdlog code with GDB
 - See local variables, function arguments in library stack frames
 - Example: YAML-cpp sparse array bug found by inspecting `YAML::Node` internals
 

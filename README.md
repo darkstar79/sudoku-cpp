@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/darkstar79/sudoku-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/darkstar79/sudoku-cpp/actions/workflows/ci.yml)
 
-An offline Sudoku game built with C++23, Dear ImGui, and SDL3.
+An offline Sudoku game built with C++23 and Qt6.
 
 This project is entirely **vibe coded** using [Claude Code](https://docs.anthropic.com/en/docs/claude-code) — no manual coding involved. It serves as a personal experiment to explore what's possible with AI-assisted development and how to work effectively with Claude Code on a non-trivial C++ codebase.
 
@@ -20,7 +20,7 @@ This project is entirely **vibe coded** using [Claude Code](https://docs.anthrop
 | | |
 |---|---|
 | **Language** | C++23 |
-| **UI** | Dear ImGui + SDL3 |
+| **UI** | Qt6 Widgets |
 | **Build** | CMake + Conan |
 | **Testing** | Catch2 |
 | **Architecture** | MVVM |
@@ -122,7 +122,7 @@ cmake --build build/Clang-Debug
 ```
 
 Debug builds include:
-- Full debug symbols in **all dependencies** (SDL3, ImGui, yaml-cpp, etc.)
+- Full debug symbols in **all dependencies** (yaml-cpp, spdlog, etc.)
 - Runtime bounds checking and assertions (`-D_GLIBCXX_ASSERTIONS`)
 - No optimization (`-O0`)
 - Complete stack traces (`-fno-omit-frame-pointer`)
@@ -207,7 +207,7 @@ sudoku-cpp/
 │   ├── core/              # Business logic (Model layer)
 │   ├── model/             # Domain models
 │   ├── view_model/        # Presentation logic
-│   ├── view/              # UI rendering (ImGui)
+│   ├── view/              # UI rendering (Qt6 Widgets)
 │   └── infrastructure/    # Cross-cutting concerns
 ├── include/               # Shared headers
 ├── tests/
@@ -225,7 +225,7 @@ The project follows MVVM (Model-View-ViewModel) architecture with strict separat
 
 - **Model Layer:** Business logic (GameValidator, PuzzleGenerator, SudokuSolver, SaveManager)
 - **ViewModel Layer:** Presentation logic with Observable pattern
-- **View Layer:** UI rendering with Dear ImGui
+- **View Layer:** UI rendering with Qt6 Widgets
 
 Key architectural principles:
 - Dependency Injection via interfaces
@@ -309,7 +309,7 @@ gdb --args ./build/Debug/bin/tests/unit_tests "Failing Test"
 ```
 
 **Why Debug builds matter:**
-- Debug symbols in **all dependencies** (SDL3, ImGui, yaml-cpp, etc.)
+- Debug symbols in **all dependencies** (yaml-cpp, spdlog, etc.)
 - Bounds checking catches bugs that Release builds miss (`std::vector::operator[]`)
 - No optimization prevents variables from being optimized away
 - Complete stack traces with `-fno-omit-frame-pointer`

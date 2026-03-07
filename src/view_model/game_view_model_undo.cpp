@@ -72,15 +72,8 @@ void GameViewModel::undoToLastValid() {
         return;
     }
 
-    // Get current board state
-    auto board = gameState.get().extractNumbers();
-
-    // Check if current state has conflicts
-    auto conflicts = validator_->findConflicts(board);
-    bool hasErrors = !conflicts.empty();
-
-    // If no errors, nothing to do
-    if (!hasErrors) {
+    // Check if current state has errors (conflicts OR wrong values vs solution)
+    if (!hasBoardErrors()) {
         uiState.update([this](auto& ui) { ui.status_message = loc(core::StringKeys::StatusBoardValid); });
         return;
     }
@@ -162,13 +155,14 @@ void GameViewModel::recordMove(const core::Move& move, bool is_mistake) {
     move_history_.push_back(move);
     move_history_index_ = static_cast<int>(move_history_.size()) - 1;
 
-    // Track last valid state and update conflict highlighting
-    auto board = gameState.get().extractNumbers();
-    auto conflicts = validator_->findConflicts(board);
-    if (conflicts.empty()) {
+    // Track last valid state (no conflicts AND no wrong values vs solution)
+    if (!hasBoardErrors()) {
         last_valid_state_index_ = move_history_index_;
     }
 
+    // Update conflict highlighting and mistake count
+    auto board = gameState.get().extractNumbers();
+    auto conflicts = validator_->findConflicts(board);
     gameState.update([&conflicts, is_mistake](model::GameState& state) {
         state.updateConflicts(conflicts);
         if (is_mistake) {
@@ -187,7 +181,7 @@ void GameViewModel::recordMove(const core::Move& move, bool is_mistake) {
 
 void GameViewModel::applyMove(const core::Move& move) {
     bool auto_notes = isAutoNotesEnabled();
-    gameState.update([this, &move, auto_notes](model::GameState& state) {
+    gameState.update([&move, auto_notes](model::GameState& state) {
         auto& cell = state.getCell(move.position);
         switch (move.move_type) {
             case core::MoveType::PlaceNumber:
@@ -232,7 +226,7 @@ void GameViewModel::applyMove(const core::Move& move) {
 // NOLINTNEXTLINE(readability-function-cognitive-complexity) — undo logic with note/value branching; nesting is inherent
 void GameViewModel::revertMove(const core::Move& move) {
     bool auto_notes = isAutoNotesEnabled();
-    gameState.update([this, &move, auto_notes](model::GameState& state) {
+    gameState.update([&move, auto_notes](model::GameState& state) {
         auto& cell = state.getCell(move.position);
         switch (move.move_type) {
             case core::MoveType::PlaceNumber:

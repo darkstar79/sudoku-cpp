@@ -575,9 +575,7 @@ class SaveDialog {
     std::string saveNameBuffer_;
 
 public:
-    void render() {
-        ImGui::InputText("Save Name", &saveNameBuffer_);
-    }
+    [[nodiscard]] const std::string& saveName() const { return saveNameBuffer_; }
 };
 ```
 
@@ -587,9 +585,8 @@ class SaveDialog {
     char saveNameBuffer_[256];
 
 public:
-    void render() {
-        ImGui::InputText("Save Name", saveNameBuffer_, sizeof(saveNameBuffer_));
-        // Buffer overflow if user enters >255 chars
+    void getSaveName(char* out) {
+        std::strcpy(out, saveNameBuffer_);  // ❌ No bounds checking
     }
 };
 ```

@@ -15,12 +15,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "../../src/core/game_validator.h"
-#include "../../src/core/mock_localization_manager.h"
 #include "../../src/core/puzzle_generator.h"
 #include "../../src/core/save_manager.h"
 #include "../../src/core/statistics_manager.h"
 #include "../../src/core/sudoku_solver.h"
 #include "../../src/view_model/game_view_model.h"
+#include "../helpers/mock_localization_manager.h"
 #include "../helpers/test_utils.h"
 #include "core/board_utils.h"
 

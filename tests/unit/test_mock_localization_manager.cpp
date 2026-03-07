@@ -19,7 +19,7 @@
 /// - getCurrentLocale (lines 25-26)
 /// - getAvailableLocales (lines 29-31)
 
-#include "../../src/core/mock_localization_manager.h"
+#include "../helpers/mock_localization_manager.h"
 
 #include <catch2/catch_test_macros.hpp>
 

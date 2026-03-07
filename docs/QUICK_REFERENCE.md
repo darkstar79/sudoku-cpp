@@ -67,9 +67,10 @@ Fast lookup guide for common commands, file locations, and MCP server operations
 
 | Component | Path | Lines | Purpose |
 |-----------|------|-------|---------|
-| MainWindow | `src/view/main_window.{h,cpp}` | 800 | ImGui rendering, keyboard navigation |
-| FontManager | `src/view/font_manager.{h,cpp}` | 150 | Font loading and management |
-| ToastNotification | `src/view/toast_notification.{h,cpp}` | 100 | Notification system |
+| MainWindow | `src/view/main_window.{h,cpp}` | 730 | Qt6 QMainWindow, menus, toolbar, dialogs |
+| SudokuBoardWidget | `src/view/sudoku_board_widget.{h,cpp}` | 280 | QPainter board rendering |
+| TrainingWidget | `src/view/training_widget.{h,cpp}` | 500 | Training mode (5-page QStackedWidget) |
+| ToastWidget | `src/view/toast_widget.{h,cpp}` | 90 | Toast notification overlay |
 
 ### Domain Models (src/model/)
 
@@ -98,7 +99,7 @@ Fast lookup guide for common commands, file locations, and MCP server operations
 | File | Purpose |
 |------|---------|
 | `CMakeLists.txt` | C++23 build configuration, flattened dirs |
-| `conanfile.py` | Dependency management (SDL3, ImGui, Catch2, libsodium, yaml-cpp) |
+| `conanfile.py` | Dependency management (Catch2, libsodium, yaml-cpp, spdlog) |
 | `.clang-format` | Code formatting rules |
 | `.clang-tidy` | Static analysis configuration |
 | `.gcovr.cfg` | Coverage reporting configuration |

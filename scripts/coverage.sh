@@ -8,9 +8,7 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Conan output directory (contains generators and toolchain)
 BUILD_DIR="${PROJECT_ROOT}/build/RelWithDebInfo"
 
-# Detect actual cmake binary dir: Conan versions differ in their output structure.
-# Newer Conan (local) nests: build/RelWithDebInfo/build/RelWithDebInfo
-# Older Conan (CI Ubuntu 24.04) is flat: build/RelWithDebInfo
+# Detect actual cmake binary dir (Conan output structure varies by version)
 function get_cmake_build_dir() {
     if [ -f "${BUILD_DIR}/build/RelWithDebInfo/bin/tests/unit_tests" ]; then
         echo "${BUILD_DIR}/build/RelWithDebInfo"

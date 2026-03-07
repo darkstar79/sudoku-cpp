@@ -10,7 +10,7 @@ The project uses three main code quality tools:
 2. **clang-tidy** - Static analysis and linting
 3. **gcovr** - Test coverage analysis
 
-All tools automatically **exclude third-party code** (imgui_backends directory).
+All tools automatically **exclude third-party code** and build artifacts.
 
 ## Code Formatting (clang-format)
 
@@ -61,7 +61,6 @@ if (condition) {
 ```
 
 **Third-Party Code Exclusion:**
-- ImGui backend files in `src/imgui_backends/` are automatically excluded
 - Build directory and Conan cache are excluded
 - Only project source code in `src/core/`, `src/model/`, `src/view/`, `src/view_model/`, and `tests/` is formatted
 
@@ -145,7 +144,6 @@ cmake --build --preset conan-release --target tidy-fix
 
 **Automatic Analysis:**
 - clang-tidy runs automatically during compilation
-- Third-party ImGui backend files are excluded via `CMakeLists.txt`
 - Configuration prevents warnings from system headers
 
 ### Enabled Checks
@@ -287,20 +285,10 @@ make -j$(nproc) tidy
 
 ### Third-Party Code Exclusion
 
-**CMakeLists.txt configuration:**
-```cmake
-# Exclude ImGui backend files from clang-tidy
-if(CLANG_TIDY_EXE)
-    set_source_files_properties(${IMGUI_BACKEND_SOURCES} PROPERTIES
-        CXX_CLANG_TIDY ""
-    )
-endif()
-```
-
 **.clang-tidy configuration:**
 ```yaml
 # Only analyze project headers, not third-party
-HeaderFilterRegex: 'src/(?!imgui_backends).*\.h$'
+HeaderFilterRegex: 'src/.*\.h$'
 ```
 
 ## Test Coverage (gcovr)
@@ -373,7 +361,7 @@ html-medium-threshold = 75
 html-high-threshold = 90
 
 # Exclusions
-exclude = tests/.*, build/.*, .*imgui.*, /usr/.*
+exclude = tests/.*, build/.*, /usr/.*
 ```
 
 ### Coverage Exclusions
@@ -381,7 +369,7 @@ exclude = tests/.*, build/.*, .*imgui.*, /usr/.*
 The following are automatically excluded from coverage analysis:
 - Test files (`tests/.*`)
 - Build artifacts (`build/.*`)
-- Third-party libraries (ImGui, SDL, Conan packages)
+- Third-party libraries (Conan packages)
 - System headers (`/usr/.*`)
 
 ### CI/CD Integration
@@ -510,14 +498,6 @@ Check version (need 15+):
 ```bash
 clang-format --version
 ```
-
-### Issue: "Too many warnings from ImGui code"
-
-**Solution:**
-This should not happen - ImGui backends are excluded. If you see warnings:
-1. Check that files are in `src/imgui_backends/` directory
-2. Verify CMakeLists.txt exclusion is present
-3. Rebuild from clean: `rm -rf build && conan build .`
 
 ### Issue: "Format script is slow"
 

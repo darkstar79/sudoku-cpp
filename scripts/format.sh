@@ -39,7 +39,6 @@ SOURCE_DIRS=(
 
 # Files to exclude (glob patterns)
 EXCLUDE_PATTERNS=(
-    "*/imgui_backends/*"
     "*/build/*"
     "*/.conan2/*"
 )
@@ -150,7 +149,7 @@ Examples:
 
 Configuration:
   - Uses .clang-format in project root
-  - Excludes third-party code (imgui_backends)
+  - Excludes build artifacts and Conan cache
   - Enforces braces around all control statements
 
 EOF

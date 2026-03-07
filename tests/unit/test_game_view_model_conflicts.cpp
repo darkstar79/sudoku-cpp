@@ -15,12 +15,12 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "../../src/core/game_validator.h"
-#include "../../src/core/mock_localization_manager.h"
 #include "../../src/core/puzzle_generator.h"
 #include "../../src/core/save_manager.h"
 #include "../../src/core/statistics_manager.h"
 #include "../../src/core/sudoku_solver.h"
 #include "../../src/view_model/game_view_model.h"
+#include "../helpers/mock_localization_manager.h"
 
 #include <filesystem>
 #include <memory>
@@ -199,57 +199,82 @@ TEST_CASE("GameViewModel - Mistake Counter", "[game_view_model][mistakes]") {
     ConflictTestFixture fixture;
     fixture.view_model->startNewGame(Difficulty::Easy);
 
-    SECTION("Mistake count increments when placing conflicting number") {
-        auto setup = fixture.findTwoEmptyCellsSameRow();
-        REQUIRE(setup.has_value());
+    SECTION("Mistake count increments when placing wrong number") {
+        const auto& state = fixture.view_model->gameState.get();
+        const auto& solution = state.getSolutionBoard();
+        REQUIRE(!solution.empty());
 
         REQUIRE(fixture.view_model->getMistakeCount() == 0);
 
-        // First placement is not a mistake (no conflict)
-        fixture.view_model->selectCell(setup->cell_a);
-        fixture.view_model->enterNumber(setup->value);
-        REQUIRE(fixture.view_model->getMistakeCount() == 0);
+        // Find an empty cell and place the correct value — no mistake
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (state.getCell(row, col).value == 0) {
+                    fixture.view_model->selectCell({.row = row, .col = col});
+                    fixture.view_model->enterNumber(solution[row][col]);
+                    REQUIRE(fixture.view_model->getMistakeCount() == 0);
 
-        // Second placement creates a conflict - this is a mistake
-        fixture.view_model->selectCell(setup->cell_b);
-        fixture.view_model->enterNumber(setup->value);
-        REQUIRE(fixture.view_model->getMistakeCount() == 1);
+                    // Now find another empty cell and place a wrong value — mistake
+                    const auto& state2 = fixture.view_model->gameState.get();
+                    for (size_t r2 = 0; r2 < BOARD_SIZE; ++r2) {
+                        for (size_t c2 = 0; c2 < BOARD_SIZE; ++c2) {
+                            if (state2.getCell(r2, c2).value == 0) {
+                                int wrong = (solution[r2][c2] % 9) + 1;
+                                fixture.view_model->selectCell({.row = r2, .col = c2});
+                                fixture.view_model->enterNumber(wrong);
+                                REQUIRE(fixture.view_model->getMistakeCount() == 1);
+                                return;
+                            }
+                        }
+                    }
+                    return;
+                }
+            }
+        }
     }
 
     SECTION("Mistake count does not increment for valid placements") {
         const auto& state = fixture.view_model->gameState.get();
+        const auto& solution = state.getSolutionBoard();
+        REQUIRE(!solution.empty());
         for (size_t row = 0; row < BOARD_SIZE; ++row) {
             for (size_t col = 0; col < BOARD_SIZE; ++col) {
                 if (state.getCell(row, col).value == 0) {
                     Position pos{row, col};
-                    auto possible = fixture.validator->getPossibleValues(state.extractNumbers(), pos);
-                    if (!possible.empty()) {
-                        fixture.view_model->selectCell(pos);
-                        fixture.view_model->enterNumber(possible[0]);
+                    int correct_value = solution[row][col];
+                    fixture.view_model->selectCell(pos);
+                    fixture.view_model->enterNumber(correct_value);
 
-                        REQUIRE(fixture.view_model->getMistakeCount() == 0);
-                        return;
-                    }
+                    REQUIRE(fixture.view_model->getMistakeCount() == 0);
+                    return;
                 }
             }
         }
     }
 
     SECTION("Undoing a mistake does not decrement mistake count") {
-        auto setup = fixture.findTwoEmptyCellsSameRow();
-        REQUIRE(setup.has_value());
+        const auto& state = fixture.view_model->gameState.get();
+        const auto& solution = state.getSolutionBoard();
+        REQUIRE(!solution.empty());
 
-        // Create a mistake
-        fixture.view_model->selectCell(setup->cell_a);
-        fixture.view_model->enterNumber(setup->value);
-        fixture.view_model->selectCell(setup->cell_b);
-        fixture.view_model->enterNumber(setup->value);
-        REQUIRE(fixture.view_model->getMistakeCount() == 1);
+        // Find an empty cell and place a wrong value
+        for (size_t row = 0; row < BOARD_SIZE; ++row) {
+            for (size_t col = 0; col < BOARD_SIZE; ++col) {
+                if (state.getCell(row, col).value == 0) {
+                    int correct = solution[row][col];
+                    int wrong = (correct % 9) + 1;  // Different from correct
+                    fixture.view_model->selectCell({.row = row, .col = col});
+                    fixture.view_model->enterNumber(wrong);
+                    REQUIRE(fixture.view_model->getMistakeCount() == 1);
 
-        // Undo the mistake
-        fixture.view_model->undo();
+                    // Undo the mistake
+                    fixture.view_model->undo();
 
-        // Mistake count should NOT decrement (total mistakes made)
-        REQUIRE(fixture.view_model->getMistakeCount() == 1);
+                    // Mistake count should NOT decrement (total mistakes made)
+                    REQUIRE(fixture.view_model->getMistakeCount() == 1);
+                    return;
+                }
+            }
+        }
     }
 }

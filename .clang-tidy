@@ -24,12 +24,13 @@ Checks: '
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -cppcoreguidelines-pro-type-vararg,
   -readability-implicit-bool-conversion,
-  -readability-uppercase-literal-suffix
+  -readability-uppercase-literal-suffix,
+  -readability-convert-member-functions-to-static,
+  -readability-make-member-function-const
 '
 
 # Only analyze project files, ignore system headers and third-party code
-# Exclude imgui_backends directory (third-party code)
-HeaderFilterRegex: 'src/(?!imgui_backends).*\.h$'
+HeaderFilterRegex: 'src/.*\.h$'
 
 # Analysis options
 FormatStyle: file

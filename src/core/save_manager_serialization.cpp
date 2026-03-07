@@ -34,9 +34,6 @@ inline constexpr const char* SAVE_FILE_VERSION = "1.0";
 inline constexpr int MIN_DIFFICULTY = 0;  // Easy
 inline constexpr int MAX_DIFFICULTY = 3;  // Expert
 
-// Compression constants
-inline constexpr int DEFAULT_COMPRESSION_LEVEL = 6;
-
 // Zlib compression magic bytes
 // All zlib compressed data starts with 0x78 followed by a compression level indicator
 inline constexpr uint8_t ZLIB_MAGIC_BYTE = 0x78;
@@ -156,6 +153,19 @@ std::expected<void, SaveError> SaveManager::serializeToYaml(const SavedGame& gam
 
         // UI preferences
         root["auto_notes_enabled"] = game.auto_notes_enabled;
+
+        // Puzzle rating
+        if (game.puzzle_rating > 0) {
+            root["puzzle_rating"] = game.puzzle_rating;
+            root["puzzle_requires_backtracking"] = game.puzzle_requires_backtracking;
+        }
+        if (!game.puzzle_technique_ids.empty()) {
+            YAML::Node technique_ids;
+            for (int id : game.puzzle_technique_ids) {
+                technique_ids.push_back(id);
+            }
+            root["puzzle_technique_ids"] = technique_ids;
+        }
 
         // Write to file with optional compression
         // 1. Convert YAML to string
@@ -393,6 +403,19 @@ std::expected<SavedGame, SaveError> SaveManager::deserializeFromYaml(const std::
         // UI preferences (backward-compatible: defaults to false if missing)
         if (root["auto_notes_enabled"]) {
             game.auto_notes_enabled = root["auto_notes_enabled"].as<bool>();
+        }
+
+        // Puzzle rating (backward-compatible: defaults to 0/empty if missing)
+        if (root["puzzle_rating"]) {
+            game.puzzle_rating = root["puzzle_rating"].as<int>();
+        }
+        if (root["puzzle_requires_backtracking"]) {
+            game.puzzle_requires_backtracking = root["puzzle_requires_backtracking"].as<bool>();
+        }
+        if (root["puzzle_technique_ids"]) {
+            for (const auto& id : root["puzzle_technique_ids"]) {
+                game.puzzle_technique_ids.push_back(id.as<int>());
+            }
         }
 
         return game;

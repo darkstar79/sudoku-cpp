@@ -15,33 +15,44 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #pragma once
-#include <chrono>
-#include <optional>
-#include <string>
+
+#include "../core/training_types.h"
+#include "../view_model/training_view_model.h"
+
+#include <memory>
+
+#include <QWidget>
+
+class QStackedWidget;
+class QVBoxLayout;
 
 namespace sudoku::view {
 
-struct ToastMessage {
-    std::string text;
-    std::chrono::steady_clock::time_point show_time;
-    std::chrono::milliseconds duration;
+class TrainingBoardWidget;
 
-    [[nodiscard]] bool isExpired() const {
-        auto now = std::chrono::steady_clock::now();
-        return (now - show_time) >= duration;
-    }
-};
+class TrainingWidget : public QWidget {
+    Q_OBJECT
 
-class ToastNotification {
 public:
-    void show(const std::string& message, std::chrono::milliseconds duration = std::chrono::milliseconds(3000));
-    void render();  // Called from MainWindow::render()
-    [[nodiscard]] bool isVisible() const {
-        return current_toast_.has_value();
-    }
+    explicit TrainingWidget(QWidget* parent = nullptr);
+
+    void setTrainingViewModel(std::shared_ptr<viewmodel::TrainingViewModel> training_vm);
+
+signals:
+    void backToGame();
 
 private:
-    std::optional<ToastMessage> current_toast_;
+    std::shared_ptr<viewmodel::TrainingViewModel> training_vm_;
+    core::CompositeObserver observer_;
+    QStackedWidget* pages_{nullptr};
+
+    void buildTechniqueSelectionPage();
+    void buildTheoryPage();
+    void buildExercisePage();
+    void buildFeedbackPage();
+    void buildLessonCompletePage();
+
+    void refreshCurrentPage();
 };
 
 }  // namespace sudoku::view

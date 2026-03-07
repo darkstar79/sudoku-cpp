@@ -16,8 +16,31 @@ NC='\033[0m' # No Color
 # Script directory and project root
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-BUILD_DIR="$PROJECT_ROOT/build/Release"
 TIDY_CONFIG="$PROJECT_ROOT/.clang-tidy"
+
+# Find build directory containing compile_commands.json.
+# Conan versions differ in output structure:
+#   Newer Conan (local): build/<Type>/build/<Type>/
+#   Older Conan (CI):    build/<Type>/
+# Accept BUILD_DIR override, otherwise auto-detect from Release or RelWithDebInfo.
+find_build_dir() {
+    if [[ -n "${BUILD_DIR:-}" ]]; then
+        echo "$BUILD_DIR"
+        return
+    fi
+    for base in Release RelWithDebInfo Debug; do
+        for candidate in \
+            "$PROJECT_ROOT/build/$base/build/$base" \
+            "$PROJECT_ROOT/build/$base"; do
+            if [[ -f "$candidate/compile_commands.json" ]]; then
+                echo "$candidate"
+                return
+            fi
+        done
+    done
+    echo "$PROJECT_ROOT/build/Release"
+}
+BUILD_DIR="$(find_build_dir)"
 
 print_usage() {
     echo "Usage: $0 [COMMAND] [OPTIONS]"
@@ -100,7 +123,6 @@ ensure_build_exists() {
 
 get_source_files() {
     find "$PROJECT_ROOT/src" -name "*.cpp" -o -name "*.h" | \
-        grep -v "/imgui_backends/" | \
         sort
 }
 

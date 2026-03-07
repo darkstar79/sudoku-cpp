@@ -16,86 +16,670 @@
 
 #include "main_window.h"
 
+#include "../core/puzzle_rating.h"
 #include "../core/string_keys.h"
-#include "../imgui_backends/imgui_impl_opengl3.h"
-#include "../imgui_backends/imgui_impl_sdl3.h"
-#include "core/constants.h"
 #include "infrastructure/app_directory_manager.h"
+#include "sudoku_board_widget.h"
+#include "toast_widget.h"
+#include "training_widget.h"
 
-#include <algorithm>
-#include <array>
-#include <chrono>
 #include <fstream>
+#include <limits>
 
-#include <SDL3/SDL.h>
-#include <SDL3/SDL_opengl.h>
-#include <imgui.h>
+#include <QCloseEvent>
+#include <QComboBox>
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QHBoxLayout>
+#include <QInputDialog>
+#include <QKeyEvent>
+#include <QLabel>
+#include <QLineEdit>
+#include <QListWidget>
+#include <QMenuBar>
+#include <QMessageBox>
+#include <QPushButton>
+#include <QStackedWidget>
+#include <QStatusBar>
+#include <QTimer>
+#include <QToolBar>
+#include <QVBoxLayout>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::view {
 
 using namespace core::StringKeys;
 
-MainWindow::MainWindow()
-    : font_manager_(std::make_unique<FontManager>()), last_auto_save_time_(std::chrono::steady_clock::now()) {
+MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
+    setWindowTitle("Sudoku");
+    resize(800, 900);
+
+    // Newspaper-like background
+    setStyleSheet("QMainWindow { background-color: #FAF8F0; }");
+
+    setupCentralWidget();
+    setupMenuBar();
+    setupToolBar();
+    setupStatusBar();
+    setupAutoSaveTimer();
 }
 
 MainWindow::~MainWindow() {
-    if (initialized_) {
-        shutdown();
+    observer_.unsubscribeAll();
+}
+
+void MainWindow::setupCentralWidget() {
+    central_stack_ = new QStackedWidget;
+
+    board_widget_ = new SudokuBoardWidget;
+    training_widget_ = new TrainingWidget;
+    toast_widget_ = new ToastWidget(this);
+
+    // Wrap board + button panel in a container
+    auto* game_page = new QWidget;
+    auto* game_layout = new QVBoxLayout(game_page);
+    game_layout->setContentsMargins(0, 0, 0, 0);
+    game_layout->addWidget(board_widget_, 1);
+
+    // Button panel
+    auto* button_panel = new QWidget;
+    button_panel->setStyleSheet("QWidget { background-color: #f5f5f5; border-top: 1px solid #ddd; }");
+    auto* button_layout = new QHBoxLayout(button_panel);
+    button_layout->setContentsMargins(20, 8, 20, 8);
+
+    static constexpr auto* BTN_STYLE =
+        "QPushButton { background-color: #e5e7eb; color: #374151; padding: 6px 14px; "
+        "border-radius: 4px; border: 1px solid #d1d5db; }"
+        "QPushButton:hover { background-color: #d1d5db; }"
+        "QPushButton:disabled { color: #9ca3af; background-color: #f3f4f6; border-color: #e5e7eb; }"
+        "QPushButton:checked { background-color: #2563eb; color: white; border-color: #1d4ed8; }";
+
+    undo_btn_ = new QPushButton("Undo");
+    redo_btn_ = new QPushButton("Redo");
+    undo_valid_btn_ = new QPushButton("Undo Until Valid");
+    auto_notes_btn_ = new QPushButton("Auto-Notes");
+    auto_notes_btn_->setCheckable(true);
+
+    undo_btn_->setStyleSheet(BTN_STYLE);
+    redo_btn_->setStyleSheet(BTN_STYLE);
+    undo_valid_btn_->setStyleSheet(BTN_STYLE);
+    auto_notes_btn_->setStyleSheet(BTN_STYLE);
+
+    button_layout->addStretch();
+    button_layout->addWidget(undo_btn_);
+    button_layout->addWidget(redo_btn_);
+    button_layout->addWidget(undo_valid_btn_);
+    button_layout->addWidget(auto_notes_btn_);
+    button_layout->addStretch();
+
+    game_layout->addWidget(button_panel);
+
+    central_stack_->addWidget(game_page);
+    central_stack_->addWidget(training_widget_);
+    central_stack_->setCurrentIndex(0);
+
+    setCentralWidget(central_stack_);
+
+    connect(training_widget_, &TrainingWidget::backToGame, this, [this]() { central_stack_->setCurrentIndex(0); });
+}
+
+void MainWindow::setupMenuBar() {
+    auto* game_menu = menuBar()->addMenu("&Game");
+
+    game_menu->addAction("&New Game", QKeySequence("Ctrl+N"), this, &MainWindow::showNewGameDialog);
+
+    auto* reset_action =
+        game_menu->addAction("&Reset Puzzle", QKeySequence("Ctrl+R"), this, &MainWindow::showResetDialog);
+    reset_action->setEnabled(false);
+
+    game_menu->addSeparator();
+
+    game_menu->addAction("&Save", QKeySequence("Ctrl+S"), this, &MainWindow::showSaveDialog);
+    game_menu->addAction("&Open/Load", QKeySequence("Ctrl+O"), this, &MainWindow::showLoadDialog);
+
+    game_menu->addSeparator();
+
+    game_menu->addAction("&Training Mode", this, [this]() { central_stack_->setCurrentIndex(1); });
+
+    game_menu->addAction("Resume &Game", this, [this]() { central_stack_->setCurrentIndex(0); });
+
+    game_menu->addSeparator();
+
+    game_menu->addAction("S&tatistics", this, &MainWindow::showStatisticsDialog);
+    game_menu->addAction("Export &Aggregate Stats to CSV", this, &MainWindow::exportAggregateStatsCsv);
+    game_menu->addAction("Export Game &Sessions to CSV", this, &MainWindow::exportGameSessionsCsv);
+
+    game_menu->addSeparator();
+    game_menu->addAction("E&xit", QKeySequence("Alt+F4"), this, &QWidget::close);
+
+    auto* edit_menu = menuBar()->addMenu("&Edit");
+    edit_menu->addAction("&Undo", QKeySequence("Ctrl+Z"), this, [this]() {
+        if (view_model_) {
+            view_model_->undo();
+            board_widget_->update();
+        }
+    });
+
+    edit_menu->addAction("&Redo", QKeySequence("Ctrl+Y"), this, [this]() {
+        if (view_model_) {
+            view_model_->redo();
+            board_widget_->update();
+        }
+    });
+
+    edit_menu->addSeparator();
+    edit_menu->addAction("&Clear Cell", QKeySequence("Delete"), this, [this]() {
+        if (view_model_) {
+            view_model_->clearSelectedCell();
+            board_widget_->update();
+        }
+    });
+
+    auto* help_menu = menuBar()->addMenu("&Help");
+    help_menu->addAction("Get &Hint", QKeySequence("H"), this, [this]() {
+        if (view_model_ && view_model_->getHintCount() > 0) {
+            view_model_->getHint();
+            board_widget_->update();
+        }
+    });
+    help_menu->addSeparator();
+    help_menu->addAction("&About", this, &MainWindow::showAboutDialog);
+}
+
+void MainWindow::setupToolBar() {
+    auto* toolbar = addToolBar("Main");
+    toolbar->setMovable(false);
+    toolbar->setStyleSheet(
+        "QToolBar { background-color: #f5f5f5; border-bottom: 1px solid #ddd; padding: 4px; spacing: 8px; }");
+
+    auto* new_game_btn = new QPushButton("New Game");
+    new_game_btn->setStyleSheet(
+        "QPushButton { background-color: #2563eb; color: white; padding: 6px 16px; border-radius: 4px; }"
+        "QPushButton:hover { background-color: #1d4ed8; }");
+    connect(new_game_btn, &QPushButton::clicked, this, &MainWindow::showNewGameDialog);
+    toolbar->addWidget(new_game_btn);
+
+    toolbar->addSeparator();
+
+    toolbar->addWidget(new QLabel(" Difficulty: "));
+    difficulty_combo_ = new QComboBox;
+    difficulty_combo_->addItems({"Easy", "Medium", "Hard", "Expert", "Master"});
+    difficulty_combo_->setCurrentIndex(1);  // Medium
+    toolbar->addWidget(difficulty_combo_);
+
+    connect(difficulty_combo_, &QComboBox::currentIndexChanged, this, [this](int index) {
+        if (!view_model_) {
+            return;
+        }
+        auto result = QMessageBox::question(
+            this, QString("New Game"),
+            QString("Start a new %1 game?\nCurrent progress will be lost.").arg(difficulty_combo_->currentText()));
+        if (result == QMessageBox::Yes) {
+            view_model_->startNewGame(static_cast<core::Difficulty>(index));
+        } else {
+            // Revert combo without triggering signal again
+            difficulty_combo_->blockSignals(true);
+            difficulty_combo_->setCurrentIndex(last_difficulty_index_);
+            difficulty_combo_->blockSignals(false);
+        }
+        last_difficulty_index_ = difficulty_combo_->currentIndex();
+    });
+
+    toolbar->addSeparator();
+
+    toolbar->addWidget(new QLabel(" Hints: "));
+    hints_label_ = new QLabel("10");
+    hints_label_->setStyleSheet("background-color: #2563eb; color: white; padding: 2px 12px; border-radius: 12px;");
+    toolbar->addWidget(hints_label_);
+
+    toolbar->addSeparator();
+
+    rating_btn_ = new QPushButton;
+    rating_btn_->setFlat(true);
+    rating_btn_->setCursor(Qt::PointingHandCursor);
+    rating_btn_->setStyleSheet("QPushButton { border: none; padding: 2px 8px; text-decoration: underline; }"
+                               "QPushButton:hover { color: #2563eb; }");
+    connect(rating_btn_, &QPushButton::clicked, this, &MainWindow::showTechniquesDialog);
+    rating_action_ = toolbar->addWidget(rating_btn_);
+    rating_action_->setVisible(false);
+}
+
+void MainWindow::setupStatusBar() {
+    status_label_ = new QLabel("Ready");
+    statusBar()->addWidget(status_label_, 1);
+    statusBar()->setStyleSheet("QStatusBar { background-color: #f0f0f0; border-top: 1px solid #ddd; color: #666; }");
+}
+
+void MainWindow::setupAutoSaveTimer() {
+    auto_save_timer_ = new QTimer(this);
+    auto_save_timer_->setInterval(30000);  // 30 seconds
+    connect(auto_save_timer_, &QTimer::timeout, this, &MainWindow::onAutoSave);
+    auto_save_timer_->start();
+}
+
+void MainWindow::onAutoSave() {
+    if (view_model_ && view_model_->isGameStateDirty()) {
+        view_model_->autoSave();
+        spdlog::debug("Periodic auto-save triggered (30s interval)");
     }
 }
 
-bool MainWindow::initialize(const std::string& title, int width, int height) {
-    spdlog::info("Initializing MainWindow: {}x{}", width, height);
+void MainWindow::setViewModel(std::shared_ptr<viewmodel::GameViewModel> view_model) {
+    view_model_ = std::move(view_model);
 
-    // Initialize SDL3
-    if (!initializeSdl()) {
-        return false;
+    if (view_model_) {
+        board_widget_->setViewModel(view_model_);
+
+        // Connect button panel
+        connect(undo_btn_, &QPushButton::clicked, this, [this]() {
+            if (view_model_) {
+                view_model_->undo();
+                board_widget_->update();
+            }
+        });
+        connect(redo_btn_, &QPushButton::clicked, this, [this]() {
+            if (view_model_) {
+                view_model_->redo();
+                board_widget_->update();
+            }
+        });
+        connect(undo_valid_btn_, &QPushButton::clicked, this, [this]() {
+            if (view_model_) {
+                view_model_->undoToLastValid();
+                board_widget_->update();
+            }
+        });
+        connect(auto_notes_btn_, &QPushButton::clicked, this, [this]() {
+            if (view_model_) {
+                view_model_->toggleAutoNotes();
+                board_widget_->update();
+            }
+        });
+
+        observer_.observe(view_model_->gameState, [this](const auto&) {
+            board_widget_->update();
+            updateStatusBar();
+            updateToolBar();
+            updateButtonPanel();
+        });
+        observer_.observe(view_model_->uiState, [this](const auto&) {
+            updateToolBar();
+            updateStatusBar();
+            updateButtonPanel();
+        });
+        observer_.observe(view_model_->errorMessage, [](const std::string& error) {
+            if (!error.empty()) {
+                spdlog::error("UI Error: {}", error);
+            }
+        });
+
+        spdlog::debug("ViewModel bound to MainWindow");
     }
+}
 
-    // Setup OpenGL context and create window
-    if (!setupOpenGlContext(title, width, height)) {
-        return false;
+void MainWindow::setTrainingViewModel(std::shared_ptr<viewmodel::TrainingViewModel> training_vm) {
+    training_vm_ = std::move(training_vm);
+    training_widget_->setTrainingViewModel(training_vm_);
+
+    if (training_vm_) {
+        observer_.observe(training_vm_->errorMessage, [](const std::string& error) {
+            if (!error.empty()) {
+                spdlog::error("Training Error: {}", error);
+            }
+        });
     }
-
-    // Log OpenGL capabilities
-    logOpenGlInfo();
-
-    // Initialize ImGui context and fonts
-    if (!initializeImGui()) {
-        return false;
-    }
-
-    // Determine GLSL version from OpenGL version
-    const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-    const char* glsl_version = "#version 130";
-    if (version && std::string(version).find("OpenGL ES") != std::string::npos) {
-        glsl_version = "#version 300 es";
-    } else if (version && std::string(version).find("2.") != std::string::npos) {
-        glsl_version = "#version 120";
-    }
-
-    // Initialize ImGui rendering backends
-    if (!initializeImGuiBackends(glsl_version)) {
-        return false;
-    }
-
-    initialized_ = true;
-    spdlog::info("MainWindow initialized successfully");
-    return true;
 }
 
 void MainWindow::setLocalizationManager(std::shared_ptr<core::ILocalizationManager> loc_manager) {
     loc_manager_ = std::move(loc_manager);
 
-    // Apply saved language preference (overrides default "en" from startup)
     auto saved_locale = loadLanguagePreference();
     if (!saved_locale.empty() && saved_locale != loc_manager_->getCurrentLocale()) {
         [[maybe_unused]] auto result = loc_manager_->setLocale(saved_locale);
     }
 
     spdlog::debug("LocalizationManager bound to MainWindow (locale: {})", loc_manager_->getCurrentLocale());
+}
+
+void MainWindow::closeEvent(QCloseEvent* event) {
+    if (view_model_) {
+        spdlog::info("Window close requested, saving game state...");
+        view_model_->autoSave();
+        spdlog::info("Game state saved, closing window");
+    }
+    event->accept();
+}
+
+void MainWindow::keyPressEvent(QKeyEvent* event) {
+    if (!view_model_) {
+        QMainWindow::keyPressEvent(event);
+        return;
+    }
+
+    if (event->isAutoRepeat()) {
+        return;
+    }
+
+    int key = event->key();
+
+    // Number keys 1-9
+    if (key >= Qt::Key_1 && key <= Qt::Key_9) {
+        handleNumberInput(key - Qt::Key_1 + 1);
+        return;
+    }
+
+    // Navigation
+    const auto& game_state = view_model_->gameState.get();
+    auto pos_opt = game_state.getSelectedPosition();
+
+    if (pos_opt.has_value()) {
+        const auto& pos = pos_opt.value();
+        switch (key) {
+            case Qt::Key_Up:
+                view_model_->selectCell(pos.row > 0 ? pos.row - 1 : core::BOARD_SIZE - 1, pos.col);
+                board_widget_->update();
+                return;
+            case Qt::Key_Down:
+                view_model_->selectCell(pos.row < core::BOARD_SIZE - 1 ? pos.row + 1 : 0, pos.col);
+                board_widget_->update();
+                return;
+            case Qt::Key_Left:
+                view_model_->selectCell(pos.row, pos.col > 0 ? pos.col - 1 : core::BOARD_SIZE - 1);
+                board_widget_->update();
+                return;
+            case Qt::Key_Right:
+                view_model_->selectCell(pos.row, pos.col < core::BOARD_SIZE - 1 ? pos.col + 1 : 0);
+                board_widget_->update();
+                return;
+            default:
+                break;
+        }
+    }
+
+    // Editing keys
+    if (key == Qt::Key_Delete || key == Qt::Key_Backspace || key == Qt::Key_0) {
+        view_model_->clearSelectedCell();
+        board_widget_->update();
+        return;
+    }
+
+    // Ctrl+Shift+Z = undo to last valid
+    if (key == Qt::Key_Z && event->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier)) {
+        view_model_->undoToLastValid();
+        board_widget_->update();
+        return;
+    }
+
+    // F1 toggle menu
+    if (key == Qt::Key_F1) {
+        menuBar()->setVisible(!menuBar()->isVisible());
+        return;
+    }
+
+    QMainWindow::keyPressEvent(event);
+}
+
+void MainWindow::handleNumberInput(int number) {
+    if (!view_model_) {
+        return;
+    }
+
+    const auto& game_state = view_model_->gameState.get();
+    if (!game_state.isTimerRunning()) {
+        return;
+    }
+
+    auto pos_opt = game_state.getSelectedPosition();
+    if (!pos_opt.has_value()) {
+        return;
+    }
+
+    const auto& cell = game_state.getCell(pos_opt->row, pos_opt->col);
+    if (cell.is_given) {
+        return;
+    }
+
+    if (view_model_->isAutoNotesEnabled()) {
+        if (cell.value == 0) {
+            view_model_->enterNumber(number);
+        } else if (cell.value == number) {
+            view_model_->clearSelectedCell();
+        }
+        board_widget_->update();
+        return;
+    }
+
+    // Double-press detection
+    auto now = std::chrono::steady_clock::now();
+    bool is_double = (number == last_number_pressed_ && now - last_press_time_ < DOUBLE_PRESS_THRESHOLD);
+
+    if (is_double) {
+        view_model_->enterNumber(number);
+        last_number_pressed_ = 0;
+        last_press_time_ = {};
+    } else {
+        if (cell.value == 0) {
+            view_model_->enterNote(number);
+        } else if (cell.value == number && !cell.is_given) {
+            view_model_->clearSelectedCell();
+        }
+        last_number_pressed_ = number;
+        last_press_time_ = now;
+    }
+    board_widget_->update();
+}
+
+void MainWindow::updateStatusBar() {
+    if (!view_model_) {
+        status_label_->setText("Ready");
+        return;
+    }
+
+    const auto& game_state = view_model_->gameState.get();
+    if (game_state.isComplete()) {
+        status_label_->setText("<span style='color: green;'>Completed!</span>");
+    } else if (game_state.isTimerRunning()) {
+        status_label_->setText("Playing...");
+    } else {
+        status_label_->setText("Ready");
+    }
+}
+
+void MainWindow::updateToolBar() {
+    if (!view_model_) {
+        return;
+    }
+
+    int hint_count = view_model_->getHintCount();
+    hints_label_->setText(QString::number(hint_count));
+
+    const auto& ui_state = view_model_->uiState.get();
+    if (ui_state.puzzle_rating > 0) {
+        const auto& techniques = ui_state.puzzle_techniques;
+        if (!techniques.empty()) {
+            rating_btn_->setText(
+                QString("Rating: %1 (%2 techniques)").arg(ui_state.puzzle_rating).arg(techniques.size()));
+        } else {
+            rating_btn_->setText(QString("Rating: %1").arg(ui_state.puzzle_rating));
+        }
+        rating_action_->setVisible(true);
+    } else {
+        rating_action_->setVisible(false);
+    }
+}
+
+void MainWindow::updateButtonPanel() {
+    if (!view_model_) {
+        return;
+    }
+
+    undo_btn_->setEnabled(view_model_->canUndo());
+    redo_btn_->setEnabled(view_model_->canRedo());
+    auto_notes_btn_->setChecked(view_model_->isAutoNotesEnabled());
+}
+
+// Dialog methods
+
+void MainWindow::showNewGameDialog() {
+    if (!view_model_) {
+        return;
+    }
+
+    int selected = difficulty_combo_ ? difficulty_combo_->currentIndex() : 1;
+    QString diff_name = difficulty_combo_ ? difficulty_combo_->currentText() : "Medium";
+
+    auto result = QMessageBox::question(this, QString("New Game"),
+                                        QString("Start a new %1 game?\nCurrent progress will be lost.").arg(diff_name));
+
+    if (result == QMessageBox::Yes) {
+        view_model_->startNewGame(static_cast<core::Difficulty>(selected));
+    }
+}
+
+void MainWindow::showResetDialog() {
+    auto result = QMessageBox::warning(this, "Reset Puzzle",
+                                       "This will reset all your progress on the current puzzle. Are you sure?",
+                                       QMessageBox::Yes | QMessageBox::Cancel, QMessageBox::Cancel);
+    if (result == QMessageBox::Yes && view_model_) {
+        view_model_->executeCommand(viewmodel::GameCommand::ResetGame);
+    }
+}
+
+void MainWindow::showSaveDialog() {
+    bool ok = false;
+    QString name = QInputDialog::getText(this, "Save Game", "Enter save name:", QLineEdit::Normal, "", &ok);
+    if (ok && !name.isEmpty() && view_model_) {
+        bool success = view_model_->saveCurrentGame(name.toStdString());
+        if (success) {
+            toast_widget_->show("Game saved!");
+        }
+    }
+}
+
+void MainWindow::showLoadDialog() {
+    if (!view_model_) {
+        return;
+    }
+
+    QDialog dialog(this);
+    dialog.setWindowTitle("Load Game");
+    dialog.setMinimumSize(300, 200);
+
+    auto* layout = new QVBoxLayout(&dialog);
+    layout->addWidget(new QLabel("Recent Saves:"));
+
+    auto* list = new QListWidget;
+    auto saves = view_model_->recentSaves.get();
+    for (const auto& save : saves) {
+        list->addItem(QString::fromStdString(save));
+    }
+    layout->addWidget(list);
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    layout->addWidget(buttons);
+
+    connect(buttons, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+    connect(list, &QListWidget::itemDoubleClicked, &dialog, &QDialog::accept);
+
+    if (dialog.exec() == QDialog::Accepted && list->currentItem() != nullptr) {
+        view_model_->loadGame(list->currentItem()->text().toStdString());
+    }
+}
+
+void MainWindow::showStatisticsDialog() {
+    if (!view_model_) {
+        return;
+    }
+
+    auto stats = view_model_->statistics.get();
+
+    QString text = QString("Games Played: %1\nGames Completed: %2\nCompletion Rate: %3%\n"
+                           "Best Time: %4\nAverage Time: %5\nCurrent Streak: %6\nBest Streak: %7")
+                       .arg(stats.games_played)
+                       .arg(stats.games_completed)
+                       .arg(stats.completion_rate, 0, 'f', 1)
+                       .arg(QString::fromStdString(stats.best_time))
+                       .arg(QString::fromStdString(stats.average_time))
+                       .arg(stats.current_streak)
+                       .arg(stats.best_streak);
+
+    QMessageBox::information(this, "Statistics", text);
+}
+
+void MainWindow::showAboutDialog() {
+    QMessageBox::about(this, "About Sudoku",
+                       "Sudoku Game\n\nA feature-rich offline Sudoku application.\n\n"
+                       "Built with:\n- Qt6\n- C++23\n\n"
+                       "Copyright (C) 2025-2026 Alexander Bendlin");
+}
+
+void MainWindow::showTechniquesDialog() {
+    if (!view_model_) {
+        return;
+    }
+
+    const auto& ui_state = view_model_->uiState.get();
+    if (ui_state.puzzle_rating <= 0) {
+        return;
+    }
+
+    QString text = QString("Puzzle Rating: %1\n\n").arg(ui_state.puzzle_rating);
+
+    const auto& techniques = ui_state.puzzle_techniques;
+    if (!techniques.empty()) {
+        text += "Techniques required to solve:\n\n";
+        for (const auto& tech : techniques) {
+            text += QString("  %1\n").arg(QString::fromStdString(tech));
+        }
+    } else {
+        text += "No technique details available.";
+    }
+
+    QMessageBox::information(this, "Puzzle Difficulty", text);
+}
+
+void MainWindow::exportAggregateStatsCsv() {
+    if (!view_model_) {
+        return;
+    }
+
+    auto result = view_model_->exportAggregateStatsCsv();
+    if (result) {
+        toast_widget_->show("Aggregate stats exported to CSV!");
+    } else {
+        toast_widget_->show(QString("Export failed: %1").arg(QString::fromStdString(result.error())));
+    }
+}
+
+void MainWindow::exportGameSessionsCsv() {
+    if (!view_model_) {
+        return;
+    }
+
+    auto result = view_model_->exportGameSessionsCsv();
+    if (result) {
+        toast_widget_->show("Game sessions exported to CSV!");
+    } else {
+        toast_widget_->show(QString("Export failed: %1").arg(QString::fromStdString(result.error())));
+    }
+}
+
+const char* MainWindow::difficultyString(core::Difficulty difficulty) const {
+    switch (difficulty) {
+        case core::Difficulty::Easy:
+            return loc(DifficultyEasy);
+        case core::Difficulty::Medium:
+            return loc(DifficultyMedium);
+        case core::Difficulty::Hard:
+            return loc(DifficultyHard);
+        case core::Difficulty::Expert:
+            return loc(DifficultyExpert);
+        case core::Difficulty::Master:
+            return loc(DifficultyMaster);
+        default:
+            return loc(DifficultyUnknown);
+    }
 }
 
 void MainWindow::saveLanguagePreference(std::string_view locale_code) {
@@ -121,419 +705,4 @@ std::string MainWindow::loadLanguagePreference() {
     return locale_code;
 }
 
-const char* MainWindow::difficultyString(core::Difficulty difficulty) const {
-    switch (difficulty) {
-        case core::Difficulty::Easy:
-            return loc(DifficultyEasy);
-        case core::Difficulty::Medium:
-            return loc(DifficultyMedium);
-        case core::Difficulty::Hard:
-            return loc(DifficultyHard);
-        case core::Difficulty::Expert:
-            return loc(DifficultyExpert);
-        case core::Difficulty::Master:
-            return loc(DifficultyMaster);
-        default:
-            return loc(DifficultyUnknown);
-    }
-}
-
-void MainWindow::setViewModel(std::shared_ptr<viewmodel::GameViewModel> view_model) {
-    view_model_ = std::move(view_model);
-
-    if (view_model_) {
-        // Subscribe to view model changes
-        observer_.observe(view_model_->gameState, [this](const auto&) { updateFromViewModel(); });
-        observer_.observe(view_model_->uiState, [this](const auto&) { updateFromViewModel(); });
-        observer_.observe(view_model_->errorMessage, [this](const std::string& error) {
-            if (!error.empty()) {
-                showError(error);
-            }
-        });
-
-        spdlog::debug("ViewModel bound to MainWindow");
-    }
-}
-
-void MainWindow::setTrainingViewModel(std::shared_ptr<viewmodel::TrainingViewModel> training_vm) {
-    training_vm_ = std::move(training_vm);
-
-    if (training_vm_) {
-        observer_.observe(training_vm_->errorMessage, [this](const std::string& error) {
-            if (!error.empty()) {
-                showError(error);
-            }
-        });
-        spdlog::debug("TrainingViewModel bound to MainWindow");
-    }
-}
-
-void MainWindow::render() {
-    if (!initialized_) {
-        return;
-    }
-
-    // Check auto-save timer (only if game state is dirty)
-    auto now = std::chrono::steady_clock::now();
-    if (now - last_auto_save_time_ >= AUTO_SAVE_INTERVAL) {
-        if (view_model_ && view_model_->isGameStateDirty()) {
-            view_model_->autoSave();
-            last_auto_save_time_ = now;
-            spdlog::debug("Periodic auto-save triggered (30s interval)");
-        } else if (view_model_) {
-            spdlog::trace("Auto-save skipped - no changes since last save");
-            last_auto_save_time_ = now;  // Reset timer anyway
-        }
-    }
-
-    // Start ImGui frame
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL3_NewFrame();
-    ImGui::NewFrame();
-
-    // Render UI components
-    renderMenuBar();
-    if (app_mode_ == AppMode::Play) {
-        renderToolbar();
-        renderGameBoard();
-        renderStatusBar();
-    } else {
-        renderTrainingMode();
-    }
-
-    // Render dialogs
-    if (show_new_game_dialog_) {
-        renderNewGameDialog();
-    }
-    if (show_reset_dialog_) {
-        renderResetDialog();
-    }
-    if (show_save_dialog_) {
-        renderSaveDialog();
-    }
-    if (show_load_dialog_) {
-        renderLoadDialog();
-    }
-    if (show_statistics_) {
-        renderStatisticsDialog();
-    }
-    if (show_about_) {
-        renderAboutDialog();
-    }
-
-    // Render toast notifications (always on top)
-    toast_.render();
-
-    // Rendering
-    ImGui::Render();
-    int width{0};
-    int height{0};
-    SDL_GetWindowSize(window_, &width, &height);
-    glViewport(0, 0, width, height);
-    glClearColor(UIConstants::Colors::BG_R, UIConstants::Colors::BG_G, UIConstants::Colors::BG_B,
-                 1.00F);  // #FAF8F0 - Newspaper tint background
-    glClear(GL_COLOR_BUFFER_BIT);
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-    SDL_GL_SwapWindow(window_);
-}
-
-void MainWindow::handleEvent(const SDL_Event& event) {
-    // Process event through ImGui first
-    ImGui_ImplSDL3_ProcessEvent(&event);
-
-    switch (event.type) {
-        case SDL_EVENT_QUIT:
-            // Save game state before exiting
-            if (view_model_) {
-                spdlog::info("Application exit requested, saving game state...");
-                view_model_->autoSave();
-                spdlog::info("Game state saved, exiting application");
-            }
-            should_close_ = true;
-            break;
-
-        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
-            if (event.window.windowID == SDL_GetWindowID(window_)) {
-                // Save game state before closing
-                if (view_model_) {
-                    spdlog::info("Window close requested, saving game state...");
-                    view_model_->autoSave();
-                    spdlog::info("Game state saved, closing window");
-                }
-                should_close_ = true;
-            }
-            break;
-
-        case SDL_EVENT_KEY_DOWN:
-            handleKeyboardInput(event.key.scancode);
-            break;
-
-        default:
-            break;
-    }
-}
-
-void MainWindow::shutdown() {
-    if (!initialized_) {
-        return;
-    }
-
-    spdlog::info("Shutting down MainWindow");
-
-    observer_.unsubscribeAll();
-
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL3_Shutdown();
-    ImGui::DestroyContext();
-
-    if (gl_context_) {
-        SDL_GL_DestroyContext(gl_context_);
-        gl_context_ = nullptr;
-    }
-
-    if (window_) {
-        SDL_DestroyWindow(window_);
-        window_ = nullptr;
-    }
-
-    SDL_Quit();
-    initialized_ = false;
-
-    spdlog::info("MainWindow shutdown complete");
-}
-
-void MainWindow::updateFromViewModel() {
-    // This method would update UI state based on view model changes
-    // For now, the UI updates automatically through data binding
-}
-
-void MainWindow::showError(std::string_view message) {
-    spdlog::error("UI Error: {}", message);
-    // For now, just log errors. In a full implementation, this would show an error dialog
-}
-
-void MainWindow::showStatus(std::string_view message) {
-    spdlog::info("Status: {}", message);
-}
-
-void MainWindow::setupImGuiStyle() {
-    ImGui::StyleColorsLight();
-
-    ImGuiStyle& style = ImGui::GetStyle();
-    style.WindowRounding = 0.0f;
-    style.FrameRounding = 4.0f;
-    style.ScrollbarRounding = 3.0f;
-    style.GrabRounding = 3.0f;
-    style.WindowBorderSize = 0.0f;
-    style.FrameBorderSize = 1.0f;
-    style.PopupBorderSize = 1.0f;
-    style.WindowPadding = ImVec2(0, 0);
-    style.FramePadding = ImVec2(8, 4);
-    style.ItemSpacing = ImVec2(8, 4);
-
-    // Newspaper-like color palette from mockup
-    ImVec4* colors = style.Colors;
-
-    // Window backgrounds - newspaper tint
-    colors[ImGuiCol_WindowBg] =
-        ImVec4(UIConstants::Colors::BG_R, UIConstants::Colors::BG_G, UIConstants::Colors::BG_B, 1.00F);  // #FAF8F0
-    colors[ImGuiCol_ChildBg] =
-        ImVec4(UIConstants::Colors::BG_R, UIConstants::Colors::BG_G, UIConstants::Colors::BG_B, 1.00F);
-    colors[ImGuiCol_PopupBg] = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
-
-    // Text colors - soft black
-    colors[ImGuiCol_Text] = ImVec4(0.078f, 0.078f, 0.078f, 1.00f);       // #141414
-    colors[ImGuiCol_TextDisabled] = ImVec4(0.42f, 0.42f, 0.42f, 1.00f);  // #6B6B6B
-
-    // Borders and separators
-    colors[ImGuiCol_Border] = ImVec4(0.55f, 0.55f, 0.55f, 1.00f);  // #8C8C8C
-    colors[ImGuiCol_BorderShadow] = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    colors[ImGuiCol_Separator] = ImVec4(0.55f, 0.55f, 0.55f, 1.00f);
-
-    // Headers and menus
-    colors[ImGuiCol_Header] = ImVec4(UIConstants::Colors::LIGHT_GRAY_R, UIConstants::Colors::LIGHT_GRAY_G,
-                                     UIConstants::Colors::LIGHT_GRAY_B, 1.00F);  // #f8f8f8
-    colors[ImGuiCol_HeaderHovered] = ImVec4(0.878f, 0.878f, 0.878f, 1.00f);      // #e0e0e0
-    colors[ImGuiCol_HeaderActive] = ImVec4(0.804f, 0.804f, 0.804f, 1.00f);
-
-    // Buttons
-    colors[ImGuiCol_Button] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    colors[ImGuiCol_ButtonHovered] = ImVec4(0.961f, 0.961f, 0.961f, 1.00f);  // #f5f5f5
-    colors[ImGuiCol_ButtonActive] = ImVec4(0.878f, 0.878f, 0.878f, 1.00f);
-
-    // Menu bar
-    colors[ImGuiCol_MenuBarBg] = ImVec4(0.973f, 0.973f, 0.973f, 1.00f);  // #f8f8f8
-
-    // Frame backgrounds
-    colors[ImGuiCol_FrameBg] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    colors[ImGuiCol_FrameBgHovered] = ImVec4(0.961f, 0.961f, 0.961f, 1.00f);
-    colors[ImGuiCol_FrameBgActive] = ImVec4(0.922f, 0.922f, 0.922f, 1.00f);
-
-    // Tabs
-    colors[ImGuiCol_Tab] = ImVec4(0.973f, 0.973f, 0.973f, 1.00f);
-    colors[ImGuiCol_TabHovered] = ImVec4(0.878f, 0.878f, 0.878f, 1.00f);
-    colors[ImGuiCol_TabActive] = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-
-    // Title bar
-    colors[ImGuiCol_TitleBg] = ImVec4(0.961f, 0.961f, 0.961f, 1.00f);
-    colors[ImGuiCol_TitleBgActive] = ImVec4(0.973f, 0.973f, 0.973f, 1.00f);
-    colors[ImGuiCol_TitleBgCollapsed] = ImVec4(0.973f, 0.973f, 0.973f, 0.50f);
-
-    // Scrollbar
-    colors[ImGuiCol_ScrollbarBg] = ImVec4(0.98f, 0.973f, 0.941f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrab] = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.60f, 0.60f, 0.60f, 1.00f);
-    colors[ImGuiCol_ScrollbarGrabActive] = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-
-    // Selection colors
-    colors[ImGuiCol_TextSelectedBg] = ImVec4(0.996f, 0.953f, 0.780f, 0.35f);  // #FEF3C7 with transparency
-}
-
-// ============================================================================
-// Initialization Helper Methods
-// ============================================================================
-
-bool MainWindow::initializeSdl() {
-    // Try to force X11 video driver if available (helps with EGL issues)
-    constexpr std::array<const char*, 2> preferred_drivers = {"x11", "wayland"};
-    for (const char* driver : preferred_drivers) {
-        if (SDL_SetHint(SDL_HINT_VIDEO_DRIVER, driver)) {
-            spdlog::info("Trying video driver: {}", driver);
-            if (SDL_Init(SDL_INIT_VIDEO)) {
-                spdlog::info("Successfully initialized SDL3 with {} driver", driver);
-
-                // Log available video drivers
-                int num_drivers = SDL_GetNumVideoDrivers();
-                spdlog::info("Available video drivers: {}", num_drivers);
-                for (int i = 0; i < num_drivers; ++i) {
-                    spdlog::info("  Driver {}: {}", i, SDL_GetVideoDriver(i));
-                }
-                spdlog::info("Current video driver: {}",
-                             SDL_GetCurrentVideoDriver() ? SDL_GetCurrentVideoDriver() : "none");
-
-                return true;
-            }
-            spdlog::warn("Failed to initialize SDL3 with {} driver: {}", driver, SDL_GetError());
-            SDL_Quit();  // Clean up before trying next driver
-        }
-    }
-
-    // If none of the preferred drivers worked, try default
-    SDL_SetHint(SDL_HINT_VIDEO_DRIVER, nullptr);  // Reset to default
-    if (!SDL_Init(SDL_INIT_VIDEO)) {
-        spdlog::error("Failed to initialize SDL3 with default driver: {}", SDL_GetError());
-        return false;
-    }
-    spdlog::info("Successfully initialized SDL3 with default driver");
-    return true;
-}
-
-bool MainWindow::setupOpenGlContext(const std::string& title, int width, int height) {
-    // Try different OpenGL configurations
-
-    // First try: OpenGL 3.3 Core
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-
-    // Create window
-    window_ = SDL_CreateWindow(title.c_str(), width, height,
-                               SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-
-    if (!window_) {
-        spdlog::warn("Failed to create window with OpenGL 3.3 Core: {}", SDL_GetError());
-
-        // Fallback: Try OpenGL 3.0
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-
-        window_ = SDL_CreateWindow(title.c_str(), width, height,
-                                   SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_HIGH_PIXEL_DENSITY);
-
-        if (!window_) {
-            spdlog::warn("Failed to create window with OpenGL 3.0: {}", SDL_GetError());
-
-            // Final fallback: Try compatibility profile
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
-            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
-
-            window_ = SDL_CreateWindow(title.c_str(), width, height, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
-
-            if (!window_) {
-                spdlog::error("Failed to create SDL3 window with all fallbacks: {}", SDL_GetError());
-                return false;
-            }
-            spdlog::info("Successfully created window with OpenGL 2.1 compatibility");
-        } else {
-            spdlog::info("Successfully created window with OpenGL 3.0");
-        }
-    } else {
-        spdlog::info("Successfully created window with OpenGL 3.3 Core");
-    }
-
-    // Create OpenGL context
-    gl_context_ = SDL_GL_CreateContext(window_);
-    if (!gl_context_) {
-        spdlog::error("Failed to create OpenGL context: {}", SDL_GetError());
-        return false;
-    }
-
-    SDL_GL_MakeCurrent(window_, gl_context_);
-
-    // Set swap interval (vsync) - may fail, so don't error out
-    if (!SDL_GL_SetSwapInterval(1)) {
-        spdlog::warn("Failed to enable vsync: {}", SDL_GetError());
-    }
-
-    return true;
-}
-
-void MainWindow::logOpenGlInfo() {
-    const char* vendor = reinterpret_cast<const char*>(glGetString(GL_VENDOR));
-    const char* renderer = reinterpret_cast<const char*>(glGetString(GL_RENDERER));
-    const char* version = reinterpret_cast<const char*>(glGetString(GL_VERSION));
-
-    spdlog::info("OpenGL Vendor: {}", vendor ? vendor : "unknown");
-    spdlog::info("OpenGL Renderer: {}", renderer ? renderer : "unknown");
-    spdlog::info("OpenGL Version: {}", version ? version : "unknown");
-}
-
-bool MainWindow::initializeImGui() {
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-
-    // Initialize font manager
-    if (!font_manager_->initialize()) {
-        spdlog::error("Failed to initialize FontManager");
-        return false;
-    }
-
-    setupImGuiStyle();
-    return true;
-}
-
-bool MainWindow::initializeImGuiBackends(const char* gl_version) {
-    if (!ImGui_ImplSDL3_InitForOpenGL(window_, gl_context_)) {
-        spdlog::error("Failed to initialize ImGui SDL3 backend");
-        return false;
-    }
-
-    spdlog::info("Using GLSL version: {}", gl_version);
-
-    if (!ImGui_ImplOpenGL3_Init(gl_version)) {
-        spdlog::error("Failed to initialize ImGui OpenGL3 backend");
-        return false;
-    }
-
-    return true;
-}
 }  // namespace sudoku::view

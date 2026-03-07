@@ -66,8 +66,8 @@ TEST_CASE("GameValidator validates positions", "[game_validator]") {
 
 ### What NOT to Test
 
-- Third-party library internals (SDL3, ImGui, yaml-cpp)
-- UI rendering code (MainWindow::render() - visual testing only)
+- Third-party library internals (Qt6, yaml-cpp)
+- UI rendering code (QPainter-based widgets - visual testing only)
 - Trivial getters/setters without logic
 
 ## Test Structure & Naming

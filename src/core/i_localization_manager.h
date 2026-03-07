@@ -29,8 +29,7 @@ namespace sudoku::core {
 /// Production code uses LocalizationManager (loads YAML string files).
 /// Test code uses MockLocalizationManager (returns keys as-is).
 ///
-/// All getString() return values are null-terminated const char* because
-/// Dear ImGui text functions require C strings.
+/// All getString() return values are null-terminated const char*.
 class ILocalizationManager {
 public:
     virtual ~ILocalizationManager() = default;

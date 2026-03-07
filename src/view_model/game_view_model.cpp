@@ -195,9 +195,18 @@ void GameViewModel::restoreGameState(const core::SavedGame& saved_game) {
     bool has_any_notes = std::ranges::any_of(saved_game.notes, [](const auto& row) {
         return std::ranges::any_of(row, [](const auto& cell_notes) { return !cell_notes.empty(); });
     });
-    if (saved_game.original_puzzle == saved_game.current_state &&
-        (!saved_game.move_history.empty() || saved_game.elapsed_time.count() > 0 || has_any_notes)) {
+    if (saved_game.original_puzzle == saved_game.current_state && (!saved_game.move_history.empty() || has_any_notes)) {
         spdlog::warn("Corrupted auto-save detected (original_puzzle == current_state with game progress), "
+                     "starting new game instead");
+        startNewGame(saved_game.difficulty);
+        return;
+    }
+
+    // Detect phantom-value corruption: user values exist in current_state but move_history is empty.
+    // This happens when a bug placed values during startup without recording them as moves.
+    bool has_user_values = saved_game.original_puzzle != saved_game.current_state;
+    if (has_user_values && saved_game.move_history.empty()) {
+        spdlog::warn("Corrupted auto-save detected (user values present but empty move history), "
                      "starting new game instead");
         startNewGame(saved_game.difficulty);
         return;
@@ -260,6 +269,14 @@ void GameViewModel::restoreGameState(const core::SavedGame& saved_game) {
     }
     gameState.update([&conflicts](model::GameState& state) { state.updateConflicts(conflicts); });
 
+    // Restore puzzle rating and techniques
+    current_puzzle_rating_ = saved_game.puzzle_rating;
+    current_puzzle_requires_backtracking_ = saved_game.puzzle_requires_backtracking;
+    current_puzzle_techniques_.clear();
+    for (int id : saved_game.puzzle_technique_ids) {
+        current_puzzle_techniques_.insert(static_cast<core::SolvingTechnique>(id));
+    }
+
     // Restore auto-notes preference and recompute if enabled
     uiState.update([&saved_game](UIState& state) { state.auto_notes_enabled = saved_game.auto_notes_enabled; });
     if (saved_game.auto_notes_enabled) {
@@ -301,6 +318,13 @@ bool GameViewModel::saveCurrentGame(const std::string& name) {
     // Persist auto-notes preference
     saved_game.auto_notes_enabled = isAutoNotesEnabled();
 
+    // Persist puzzle rating
+    saved_game.puzzle_rating = current_puzzle_rating_;
+    saved_game.puzzle_requires_backtracking = current_puzzle_requires_backtracking_;
+    for (const auto& tech : current_puzzle_techniques_) {
+        saved_game.puzzle_technique_ids.push_back(static_cast<int>(tech));
+    }
+
     core::SaveSettings settings;
     settings.encrypt = true;
     settings.compress = true;
@@ -326,6 +350,11 @@ void GameViewModel::autoSave() {
         auto_save_game.elapsed_time = current_state.getElapsedTime();
         auto_save_game.is_auto_save = true;
         auto_save_game.auto_notes_enabled = isAutoNotesEnabled();
+        auto_save_game.puzzle_rating = current_puzzle_rating_;
+        auto_save_game.puzzle_requires_backtracking = current_puzzle_requires_backtracking_;
+        for (const auto& tech : current_puzzle_techniques_) {
+            auto_save_game.puzzle_technique_ids.push_back(static_cast<int>(tech));
+        }
 
         // Extract notes
         auto_save_game.notes.resize(core::BOARD_SIZE, std::vector<std::vector<int>>(core::BOARD_SIZE));

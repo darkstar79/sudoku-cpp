@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include "i_localization_manager.h"
+#include "core/i_localization_manager.h"
 
 #include <string>
 #include <unordered_map>

@@ -33,11 +33,11 @@ The codebase strictly adheres to the **MVVM (Model-View-ViewModel)** pattern for
 - **Components:** `GameViewModel`
 - **Responsibility:** Orchestrates Model services, exposes Observable state for UI binding
 - **Pattern:** Observable pattern for automatic UI updates
-- **No knowledge of:** UI rendering details, ImGui specifics
+- **No knowledge of:** UI rendering details, Qt widget specifics
 
 **3. View Layer (UI Rendering)**
 - **Location:** `src/view/`
-- **Components:** `MainWindow` (ImGui-based)
+- **Components:** `MainWindow` (Qt6 Widgets)
 - **Responsibility:** Renders UI and handles user input
 - **No knowledge of:** Business logic, domain rules, data persistence
 
@@ -280,10 +280,9 @@ auto generator = container.resolve<IPuzzleGenerator>();  // Creates new instance
 
 ### Rationale
 
-1. **SDL3 Requirement:** SDL3 requires all operations on the main thread
-2. **ImGui Requirement:** ImGui rendering must be on the main thread
-3. **Simplicity:** No mutexes, no race conditions, no deadlocks
-4. **Debugging:** Easier to reason about state and debug issues
+1. **Qt Requirement:** Qt GUI operations must run on the main thread
+2. **Simplicity:** No mutexes, no race conditions, no deadlocks
+3. **Debugging:** Easier to reason about state and debug issues
 
 ### Constraints
 
@@ -415,7 +414,7 @@ REQUIRE(state.elapsedTime() == std::chrono::minutes(5));
 
 ### Why Single-Threaded Architecture?
 
-**Requirement:** SDL3 and ImGui require main thread execution.
+**Requirement:** Qt GUI operations require main thread execution.
 
 **Benefits:**
 - Eliminates race conditions, deadlocks, memory barriers
@@ -485,14 +484,14 @@ void GameViewModel::setDifficulty(Difficulty diff) {
 
 **Technology Stack:**
 - C++23 (std::expected, std::optional, designated initializers)
-- Dear ImGui + SDL3 for cross-platform GUI
+- Qt6 Widgets for cross-platform GUI
 - CMake + Conan for build/dependency management
 - Catch2 for unit/integration testing
 
 **Architectural Layers:**
 - **Model:** `GameValidator`, `PuzzleGenerator`, `SaveManager`, `StatisticsManager`, `LocalizationManager` (interfaces)
 - **ViewModel:** `GameViewModel` (Observable pattern, Command pattern for undo/redo)
-- **View:** `MainWindow` (ImGui rendering, subscribes to ViewModel Observables, localized via `ILocalizationManager`)
+- **View:** `MainWindow` (Qt6 Widgets, subscribes to ViewModel Observables, localized via `ILocalizationManager`)
 
 **Key Patterns:**
 - MVVM for separation of concerns
@@ -504,7 +503,7 @@ void GameViewModel::setDifficulty(Difficulty diff) {
 
 **Design Principles:**
 - SOLID (SRP, OCP, LSP, ISP, DIP)
-- Single-threaded (SDL3/ImGui requirement + simplicity)
+- Single-threaded (Qt main thread requirement + simplicity)
 - Interface-based design (depend on abstractions, not implementations)
 - Test-driven development (TDD with mocks for all dependencies)
 

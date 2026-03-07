@@ -35,7 +35,7 @@ REPO_ROOT=$(git rev-parse --show-toplevel)
 cd "$REPO_ROOT"
 
 # Get staged C++ files (added, copied, modified - not deleted)
-STAGED_CPP_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h|hpp)$' | grep -v 'imgui_backends/' || true)
+STAGED_CPP_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(cpp|h|hpp)$' || true)
 
 if [ -z "$STAGED_CPP_FILES" ]; then
     exit 0

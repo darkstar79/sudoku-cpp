@@ -14,6 +14,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Sanitizer configuration (ASan + UBSan)
 option(ENABLE_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+option(SUDOKU_ENABLE_UI_TESTS "Build Qt6 UI tests (requires Qt6::Test)" OFF)
 
 # Disable C++23 modules for compatibility with clang-tidy
 set(CMAKE_CXX_SCAN_FOR_MODULES OFF)
@@ -77,13 +78,15 @@ endif()
 message(STATUS "SIMD: Runtime CPU dispatch ENABLED (Scalar/AVX2/AVX-512 auto-detection)")
 
 # Conan integration
-find_package(SDL3 REQUIRED)
-find_package(imgui REQUIRED)
 find_package(spdlog REQUIRED)
 find_package(yaml-cpp REQUIRED)
 find_package(ZLIB REQUIRED)
 find_package(libsodium REQUIRED)
 # find_package(OpenSSL REQUIRED)  # Temporarily disabled
+
+# Qt6 integration (system-installed)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Test)
+qt_standard_project_setup()
 
 # Testing framework (optional)
 find_package(Catch2 QUIET)
@@ -132,26 +135,16 @@ file(GLOB_RECURSE PROJECT_SOURCES
 list(FILTER PROJECT_SOURCES EXCLUDE REGEX ".*simd_constraint_state\\.cpp$")
 list(FILTER PROJECT_SOURCES EXCLUDE REGEX ".*simd_avx512_ops\\.cpp$")
 
-# Third-party ImGui backend files (no clang-tidy analysis)
-set(IMGUI_BACKEND_SOURCES
-    "${SOURCES_DIR}/imgui_backends/imgui_impl_sdl3.cpp"
-    "${SOURCES_DIR}/imgui_backends/imgui_impl_opengl3.cpp"
-)
-
-# Combine all sources
-set(SOURCES ${PROJECT_SOURCES} ${IMGUI_BACKEND_SOURCES})
+# All sources are project sources (no third-party backends needed with Qt6)
+set(SOURCES ${PROJECT_SOURCES})
 
 # Main executable
 add_executable(${PROJECT_NAME} ${SOURCES})
 
-# Enable clang-tidy ONLY for project sources (not third-party)
+# Enable clang-tidy for project sources
 if(CLANG_TIDY_EXE)
     set_source_files_properties(${PROJECT_SOURCES} PROPERTIES
         CXX_CLANG_TIDY "${CLANG_TIDY_EXE}"
-    )
-    # Explicitly disable for third-party code
-    set_source_files_properties(${IMGUI_BACKEND_SOURCES} PROPERTIES
-        CXX_CLANG_TIDY ""
     )
 endif()
 
@@ -159,8 +152,7 @@ endif()
 target_link_libraries(${PROJECT_NAME} PUBLIC
     simd_avx2
     simd_avx512
-    SDL3::SDL3
-    imgui::imgui
+    Qt6::Widgets
     spdlog::spdlog
     yaml-cpp::yaml-cpp
     ZLIB::ZLIB

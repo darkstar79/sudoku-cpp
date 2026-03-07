@@ -83,7 +83,7 @@ public:
     }
 
     /// Subscribe with callback function
-    std::function<void()> subscribe(CallbackFn callback) {
+    std::function<void()> subscribe(const CallbackFn& callback) {
         if (callback) {
             CallbackId id = next_callback_id_++;
             callbacks_[id] = callback;

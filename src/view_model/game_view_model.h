@@ -225,6 +225,7 @@ private:
     void autoSaveIfNeeded();
     void recomputeAutoNotes();
     void updateConflictHighlighting();
+    [[nodiscard]] bool hasBoardErrors() const;
 
     // Hint system helpers
     [[nodiscard]] std::string formatHintExplanation(const core::SolveStep& step) const;

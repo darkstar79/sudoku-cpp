@@ -152,7 +152,7 @@ gameState.subscribe([this](const model::GameState& state) {
 
 **Observable is NOT thread-safe** (application is single-threaded by design):
 
-- SDL3 and ImGui require main thread execution
+- Qt GUI operations require main thread execution
 - No `std::thread`, `std::async`, or `std::future` usage in codebase
 - **Verification**: SaveManager and StatisticsManager use no mutexes (single-threaded architecture validated)
 - Adding mutex-based thread safety is **inappropriate** for this architecture

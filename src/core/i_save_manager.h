@@ -40,8 +40,8 @@ struct SavedGame {
     std::vector<std::vector<int>> current_state;         // Current board state
     std::vector<std::vector<std::vector<int>>> notes;    // 9x9 grid of note vectors
     std::vector<std::vector<bool>> hint_revealed_cells;  // 9x9 grid of hint-revealed flags
-    Difficulty difficulty;
-    uint32_t puzzle_seed;
+    Difficulty difficulty{};
+    uint32_t puzzle_seed{};
 
     // Game progress
     std::chrono::milliseconds elapsed_time{0};
@@ -50,6 +50,11 @@ struct SavedGame {
     int mistakes{0};
     bool is_complete{false};
     bool auto_notes_enabled{false};
+
+    // Puzzle rating info
+    int puzzle_rating{0};
+    std::vector<int> puzzle_technique_ids;  // SolvingTechnique enum values (locale-independent)
+    bool puzzle_requires_backtracking{false};
 
     // Move history for undo/redo
     std::vector<Move> move_history;
