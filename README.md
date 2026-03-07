@@ -1,6 +1,7 @@
 # Sudoku C++
 
 [![CI](https://github.com/darkstar79/sudoku-cpp/actions/workflows/ci.yml/badge.svg)](https://github.com/darkstar79/sudoku-cpp/actions/workflows/ci.yml)
+[![Nightly](https://github.com/darkstar79/sudoku-cpp/actions/workflows/nightly.yml/badge.svg)](https://github.com/darkstar79/sudoku-cpp/actions/workflows/nightly.yml)
 
 An offline Sudoku game built with C++23 and Qt6.
 
