@@ -4,6 +4,74 @@ This document describes the available Conan profiles for building the sudoku-cpp
 
 ## Available Profiles
 
+### Windows / MSVC Profiles
+
+- **msvc-release**: MSVC with Release build (optimized, no debug symbols)
+- **msvc-debug**: MSVC with Debug build (no optimization, full debug symbols)
+
+> **Prerequisite:** Install Qt6 via the [Qt Online Installer](https://www.qt.io/download-qt-installer).
+> Select the **MSVC 2022 64-bit** component for your Qt6 version.
+> Then set `QT6_DIR` before building:
+> ```bat
+> set QT6_DIR=C:\Qt\6.10.0\msvc2022_64
+> ```
+
+#### Auto-generate an MSVC profile (recommended)
+
+Run this once after installing Visual Studio to create a profile matching your installed compiler:
+
+```bat
+conan profile detect --name msvc-release
+```
+
+Conan will detect the MSVC version automatically. Verify it looks correct:
+
+```bat
+conan profile show --profile msvc-release
+```
+
+#### Manual profile content
+
+If you prefer to create profiles manually, place these files in `%USERPROFILE%\.conan2\profiles\`:
+
+**`msvc-release`:**
+```ini
+[settings]
+arch=x86_64
+build_type=Release
+compiler=msvc
+compiler.cppstd=23
+compiler.runtime=dynamic
+compiler.runtime_type=Release
+compiler.version=194
+os=Windows
+
+[conf]
+tools.cmake.cmaketoolchain:generator=Ninja
+```
+
+**`msvc-debug`:**
+```ini
+[settings]
+arch=x86_64
+build_type=Debug
+compiler=msvc
+compiler.cppstd=23
+compiler.runtime=dynamic
+compiler.runtime_type=Debug
+compiler.version=194
+os=Windows
+
+[conf]
+tools.cmake.cmaketoolchain:generator=Ninja
+```
+
+> **Note on `compiler.version`:** Conan uses the MSVC cl.exe major version prefix.
+> VS2022 → `193`, VS2026 Preview (v18, cl.exe 19.4x) → `194`.
+> Use `conan profile detect` to let Conan pick the right value automatically.
+> `compiler.runtime=dynamic` uses `/MD`/`/MDd` (dynamic CRT), which is required
+> to link against Qt6 shared libraries from the Qt installer.
+
 ### GCC 15 Profiles
 
 - **gcc-15-release**: GCC 15 with Release build (optimized, no debug symbols)

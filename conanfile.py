@@ -68,7 +68,7 @@ class SudokuConan(ConanFile):
         
         # Static linking for single executable distribution
         if self.settings.os == "Windows":
-            tc.variables["CMAKE_MSVC_RUNTIME_LIBRARY"] = "MultiThreaded$<$<CONFIG:Debug>:Debug>"
+            tc.variables["CMAKE_MSVC_RUNTIME_LIBRARY"] = "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
         
         tc.generate()
         

@@ -70,7 +70,7 @@ void setupDependencies() {
         []() { return std::make_unique<sudoku::core::SaveManager>(); });
 
     container.registerSingleton<sudoku::core::ILocalizationManager>([]() {
-        auto exe_dir = std::filesystem::canonical("/proc/self/exe").parent_path();
+        auto exe_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
         auto locales_dir = exe_dir / "locales";
         auto manager = std::make_unique<sudoku::core::LocalizationManager>(locales_dir);
         auto result = manager->setLocale("en");
@@ -106,9 +106,13 @@ std::shared_ptr<sudoku::viewmodel::GameViewModel> createViewModel() {
 }  // namespace
 
 int main(int argc, char* argv[]) {
+    QApplication qt_app(argc, argv);
+    QApplication::setApplicationName("Sudoku");
+    QApplication::setApplicationVersion("1.0.0");
+
     // Setup multi-sink logger: console + debug log file (truncated each launch)
     auto console_sink = std::make_shared<spdlog::sinks::stdout_color_sink_mt>();
-    auto exe_dir = std::filesystem::canonical("/proc/self/exe").parent_path();
+    auto exe_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
     auto log_path = exe_dir / "sudoku_debug.log";
     auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(log_path.string(), true);  // truncate=true
     auto logger = std::make_shared<spdlog::logger>("sudoku", spdlog::sinks_init_list{console_sink, file_sink});
@@ -118,10 +122,6 @@ int main(int argc, char* argv[]) {
 
     spdlog::info("Starting Sudoku application with Qt6 + MVVM architecture...");
     spdlog::info("Debug log: {}", log_path.string());
-
-    QApplication qt_app(argc, argv);
-    QApplication::setApplicationName("Sudoku");
-    QApplication::setApplicationVersion("1.0.0");
 
     setupDependencies();
 
