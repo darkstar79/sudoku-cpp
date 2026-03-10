@@ -16,21 +16,25 @@
 
 #include "save_manager.h"
 
-#include "core/board_serializer.h"
-#include "core/board_utils.h"
 #include "core/constants.h"
+#include "core/i_save_manager.h"
 #include "encryption_manager.h"
 #include "infrastructure/app_directory_manager.h"
 
-#include <fstream>
+#include <algorithm>
+#include <array>
+#include <compare>
+#include <ctime>
+#include <exception>
+#include <optional>
 #include <random>
-#include <sstream>
 #include <string_view>
+#include <utility>
 
+#include <fmt/base.h>
 #include <fmt/chrono.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
-#include <yaml-cpp/yaml.h>
-#include <zlib.h>
 
 namespace {
 // Save file constants

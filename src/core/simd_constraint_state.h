@@ -39,7 +39,11 @@
 
 #include <array>
 #include <cstdint>
+#include <ranges>
+#include <utility>
 #include <vector>
+
+#include <stddef.h>
 
 // Note: <immintrin.h> is intentionally NOT included here.
 // The header API uses only uint16_t/int types (no __m256i/__m512i).
@@ -126,8 +130,8 @@ inline constexpr auto PEER_TABLE = generatePeerTable();
  * - Cells 81-95: Padding (set to 0 to exclude from MRV search)
  */
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4324)  // structure was padded due to __declspec(align())
+#    pragma warning(push)
+#    pragma warning(disable : 4324)  // structure was padded due to __declspec(align())
 #endif
 struct alignas(SIMD_ALIGNMENT) SIMDConstraintState {
     /// Candidate bitmasks for all cells (SoA layout)
@@ -366,7 +370,7 @@ struct alignas(SIMD_ALIGNMENT) SIMDConstraintState {
     [[nodiscard]] std::pair<int, int> findHiddenSingleImpl(const BoardT& board, uint32_t dirty_regions) const;
 };
 #ifdef _MSC_VER
-#pragma warning(pop)
+#    pragma warning(pop)
 #endif
 
 }  // namespace sudoku::core

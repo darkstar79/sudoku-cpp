@@ -19,13 +19,23 @@
 #include "backtracking_solver.h"
 #include "core/board.h"
 #include "core/board_utils.h"
+#include "core/constants.h"
+#include "core/game_validator.h"
+#include "core/i_puzzle_generator.h"
+#include "core/i_puzzle_rater.h"
+#include "core/solve_step.h"
+#include "core/solving_technique.h"
 #include "puzzle_rating.h"
 #include "solution_counter.h"
 
 #include <algorithm>
+#include <array>
 #include <random>
+#include <set>
 #include <utility>
 
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::core {

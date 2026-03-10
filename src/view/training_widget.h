@@ -16,19 +16,17 @@
 
 #pragma once
 
-#include "../core/training_types.h"
 #include "../view_model/training_view_model.h"
+#include "core/observable.h"
 
 #include <memory>
 
 #include <QWidget>
+#include <qtmetamacros.h>
 
 class QStackedWidget;
-class QVBoxLayout;
 
 namespace sudoku::view {
-
-class TrainingBoardWidget;
 
 class TrainingWidget : public QWidget {
     Q_OBJECT

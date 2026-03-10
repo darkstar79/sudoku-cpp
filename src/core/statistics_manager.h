@@ -16,12 +16,18 @@
 
 #pragma once
 
+#include "core/i_puzzle_generator.h"
 #include "i_statistics_manager.h"
 #include "i_time_provider.h"
 
+#include <chrono>
+#include <expected>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <unordered_map>
+
+#include <stdint.h>
 
 namespace sudoku::core {
 

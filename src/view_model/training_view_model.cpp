@@ -16,9 +16,24 @@
 
 #include "training_view_model.h"
 
-#include <algorithm>
-#include <set>
+#include "core/i_game_validator.h"
+#include "core/i_localization_manager.h"
+#include "core/i_training_exercise_generator.h"
+#include "core/observable.h"
+#include "core/technique_descriptions.h"
+#include "core/training_types.h"
 
+#include <algorithm>
+#include <array>
+#include <expected>
+#include <set>
+#include <tuple>
+#include <utility>
+
+#include <stddef.h>
+#include <stdint.h>
+
+#include <fmt/base.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 

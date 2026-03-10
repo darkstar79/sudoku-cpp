@@ -21,7 +21,14 @@
 
 #include <memory>
 
+#include <stddef.h>
+
 #include <QWidget>
+#include <qcolor.h>
+#include <qicon.h>
+#include <qpoint.h>
+#include <qrect.h>
+#include <qtmetamacros.h>
 
 #ifdef SUDOKU_UI_TESTING
 class TestBoardInteraction;

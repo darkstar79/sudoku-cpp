@@ -16,10 +16,18 @@
 
 #include "game_view_model.h"
 
-#include "../core/localized_explanations.h"
 #include "../core/solving_technique.h"
 #include "core/board_utils.h"
-#include "infrastructure/app_directory_manager.h"
+#include "core/constants.h"
+#include "core/i_game_validator.h"
+#include "core/i_localization_manager.h"
+#include "core/i_puzzle_generator.h"
+#include "core/i_save_manager.h"
+#include "core/i_statistics_manager.h"
+#include "core/i_sudoku_solver.h"
+#include "core/observable.h"
+#include "core/string_keys.h"
+#include "model/game_state.h"
 
 #include <algorithm>
 #include <chrono>

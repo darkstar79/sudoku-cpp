@@ -17,8 +17,10 @@
 #pragma once
 
 #include <QLabel>
-
-class QTimer;
+#include <qstring.h>
+#include <qtmetamacros.h>
+#include <qwidget.h>
+#include <qwindowdefs.h>
 
 #ifdef SUDOKU_UI_TESTING
 class TestViewModelBinding;

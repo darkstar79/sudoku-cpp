@@ -20,20 +20,26 @@
 #include "../core/observable.h"
 #include "../view_model/game_view_model.h"
 #include "../view_model/training_view_model.h"
+#include "core/i_puzzle_generator.h"
 
 #include <chrono>
 #include <memory>
 #include <string>
+#include <string_view>
+#include <utility>
 
 #include <QMainWindow>
+#include <fmt/base.h>
 #include <fmt/format.h>
+#include <qaction.h>
+#include <qtmetamacros.h>
+#include <qwidget.h>
+#include <qwindowdefs.h>
 
-class QAction;
 class QComboBox;
 class QLabel;
 class QPushButton;
 class QStackedWidget;
-class QTimer;
 
 #ifdef SUDOKU_UI_TESTING
 class TestMainWindowConstruction;

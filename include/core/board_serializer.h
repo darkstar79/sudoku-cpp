@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "core/constants.h"
-
 #include <vector>
 
 #include <yaml-cpp/yaml.h>

@@ -18,6 +18,7 @@
 
 #include "i_game_validator.h"
 
+#include <cstdint>
 #include <memory>
 #include <optional>
 #include <random>

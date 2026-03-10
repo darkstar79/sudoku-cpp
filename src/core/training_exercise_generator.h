@@ -16,11 +16,21 @@
 
 #pragma once
 
+#include "core/solve_step.h"
+#include "core/solving_technique.h"
+#include "core/training_types.h"
 #include "i_puzzle_generator.h"
 #include "i_sudoku_solver.h"
 #include "i_training_exercise_generator.h"
 
+#include <format>
 #include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace sudoku::core {
 

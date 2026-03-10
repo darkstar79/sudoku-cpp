@@ -18,9 +18,14 @@
 
 #include "i_save_manager.h"
 
+#include <chrono>
+#include <expected>
 #include <filesystem>
 #include <memory>
-#include <unordered_map>
+#include <string>
+#include <vector>
+
+#include <stdint.h>
 
 namespace sudoku::core {
 

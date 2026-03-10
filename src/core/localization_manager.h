@@ -18,10 +18,15 @@
 
 #include "i_localization_manager.h"
 
+#include <expected>
 #include <filesystem>
+#include <ranges>
 #include <string>
+#include <string_view>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>
+#include <vector>
 
 namespace sudoku::core {
 

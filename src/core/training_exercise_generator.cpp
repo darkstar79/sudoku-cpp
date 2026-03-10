@@ -17,9 +17,16 @@
 #include "training_exercise_generator.h"
 
 #include "candidate_grid.h"
+#include "core/i_game_validator.h"
+#include "core/i_puzzle_generator.h"
+#include "core/i_sudoku_solver.h"
 
+#include <expected>
+#include <string_view>
 #include <utility>
 
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::core {

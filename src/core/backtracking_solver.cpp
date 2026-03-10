@@ -18,8 +18,14 @@
 
 #include "constraint_state.h"
 #include "core/board.h"
+#include "core/constants.h"
+#include "core/i_game_validator.h"
 
 #include <algorithm>
+#include <array>
+#include <utility>
+
+#include <stddef.h>
 
 namespace sudoku::core {
 

@@ -17,6 +17,8 @@
 #include "toast_widget.h"
 
 #include <QTimer>
+#include <QtCore/qobjectdefs.h>
+#include <qnamespace.h>
 
 namespace sudoku::view {
 

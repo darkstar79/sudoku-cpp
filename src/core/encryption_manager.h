@@ -22,6 +22,8 @@
 #include <string>
 #include <vector>
 
+#include <stddef.h>
+
 namespace sudoku::core {
 
 /// Error types for encryption operations

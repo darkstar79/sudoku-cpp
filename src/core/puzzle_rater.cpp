@@ -16,6 +16,16 @@
 
 #include "puzzle_rater.h"
 
+#include "core/i_puzzle_generator.h"
+#include "core/i_puzzle_rater.h"
+#include "core/i_sudoku_solver.h"
+#include "core/puzzle_rating.h"
+#include "core/solving_technique.h"
+
+#include <expected>
+#include <utility>
+#include <vector>
+
 namespace sudoku::core {
 
 PuzzleRater::PuzzleRater(std::shared_ptr<ISudokuSolver> solver) : solver_(std::move(solver)) {

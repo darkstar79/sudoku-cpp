@@ -25,6 +25,8 @@
 
 #include "simd_avx512_ops.h"
 
+#include "core/constants.h"
+
 #include <bit>
 #include <immintrin.h>
 

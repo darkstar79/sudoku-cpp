@@ -16,10 +16,17 @@
 
 #include "encryption_manager.h"
 
-#include <cstring>
+#include <algorithm>
 #include <fstream>
+#include <stdexcept>
 
-#include <sodium.h>
+#include <fmt/base.h>
+#include <fmt/format.h>
+#include <sodium/core.h>
+#include <sodium/crypto_pwhash.h>
+#include <sodium/crypto_secretbox.h>
+#include <sodium/randombytes.h>
+#include <sodium/utils.h>
 #include <spdlog/spdlog.h>
 
 #ifdef _WIN32

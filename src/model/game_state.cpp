@@ -17,6 +17,16 @@
 #include "game_state.h"
 
 #include "core/board_utils.h"
+#include "core/constants.h"
+#include "core/i_game_validator.h"
+#include "core/i_puzzle_generator.h"
+#include "core/i_time_provider.h"
+#include "core/observable.h"
+
+#include <algorithm>
+#include <functional>
+#include <ranges>
+#include <utility>
 
 namespace sudoku::model {
 

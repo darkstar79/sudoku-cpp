@@ -14,16 +14,30 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include "../core/localized_explanations.h"
 #include "../core/solving_technique.h"
 #include "../core/string_keys.h"
 #include "core/board_utils.h"
+#include "core/i_game_validator.h"
+#include "core/i_save_manager.h"
+#include "core/i_statistics_manager.h"
+#include "core/observable.h"
 #include "game_view_model.h"
 #include "infrastructure/app_directory_manager.h"
+#include "model/game_state.h"
 
 #include <algorithm>
+#include <array>
 #include <chrono>
+#include <expected>
+#include <filesystem>
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
 
+#include <stddef.h>
+
+#include <fmt/base.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 

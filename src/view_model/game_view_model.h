@@ -23,16 +23,23 @@
 #include "../core/i_statistics_manager.h"
 #include "../core/i_sudoku_solver.h"
 #include "../core/observable.h"
-#include "../core/string_keys.h"
 #include "../model/game_state.h"
+#include "core/solve_step.h"
+#include "core/solving_technique.h"
 
-#include <functional>
+#include <chrono>
+#include <cstdint>
+#include <expected>
 #include <memory>
 #include <set>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
+#include <stddef.h>
+
+#include <fmt/base.h>
 #include <fmt/format.h>
 
 namespace sudoku::viewmodel {

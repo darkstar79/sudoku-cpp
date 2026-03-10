@@ -16,15 +16,25 @@
 
 #include "main_window.h"
 
-#include "../core/puzzle_rating.h"
 #include "../core/string_keys.h"
+#include "core/constants.h"
+#include "core/i_game_validator.h"
+#include "core/i_localization_manager.h"
+#include "core/observable.h"
 #include "infrastructure/app_directory_manager.h"
+#include "model/game_state.h"
 #include "sudoku_board_widget.h"
 #include "toast_widget.h"
 #include "training_widget.h"
+#include "view_model/game_view_model.h"
+#include "view_model/training_view_model.h"
 
+#include <compare>
+#include <expected>
+#include <filesystem>
 #include <fstream>
-#include <limits>
+#include <optional>
+#include <vector>
 
 #include <QCloseEvent>
 #include <QComboBox>
@@ -32,7 +42,6 @@
 #include <QDialogButtonBox>
 #include <QHBoxLayout>
 #include <QInputDialog>
-#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QListWidget>
@@ -44,7 +53,13 @@
 #include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
-#include <QVBoxLayout>
+#include <QtCore/qobjectdefs.h>
+#include <qflags.h>
+#include <qkeysequence.h>
+#include <qlist.h>
+#include <qmenu.h>
+#include <qnamespace.h>
+#include <qstring.h>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::view {

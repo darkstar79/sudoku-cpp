@@ -17,14 +17,25 @@
 #include "sudoku_board_widget.h"
 
 #include "core/constants.h"
+#include "core/i_game_validator.h"
+#include "core/observable.h"
+#include "model/game_state.h"
+#include "view_model/game_view_model.h"
 
 #include <algorithm>
-#include <string>
+#include <optional>
 #include <utility>
+#include <vector>
 
 #include <QFont>
 #include <QMouseEvent>
 #include <QPainter>
+#include <qbrush.h>
+#include <qnamespace.h>
+#include <qpen.h>
+#include <qsize.h>
+#include <qsizepolicy.h>
+#include <qstring.h>
 
 namespace sudoku::view {
 

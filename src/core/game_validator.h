@@ -18,6 +18,10 @@
 
 #include "i_game_validator.h"
 
+#include <vector>
+
+#include <stddef.h>
+
 namespace sudoku::core {
 
 /// Concrete implementation of Sudoku game validation

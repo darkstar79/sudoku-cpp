@@ -15,10 +15,24 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include "core/board_utils.h"
+#include "core/constants.h"
+#include "core/i_game_validator.h"
+#include "core/observable.h"
 #include "game_view_model.h"
+#include "model/game_state.h"
 
 #include <algorithm>
+#include <chrono>
+#include <expected>
+#include <format>
+#include <memory>
+#include <optional>
+#include <vector>
 
+#include <stddef.h>
+
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::viewmodel {

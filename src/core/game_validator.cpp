@@ -17,8 +17,12 @@
 #include "game_validator.h"
 
 #include "core/board_utils.h"
+#include "core/constants.h"
+#include "core/i_game_validator.h"
 
-#include <algorithm>
+#include <expected>
+#include <optional>
+#include <utility>
 
 namespace sudoku::core {
 

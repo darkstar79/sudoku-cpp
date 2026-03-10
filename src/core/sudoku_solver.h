@@ -17,10 +17,12 @@
 #pragma once
 
 #include "candidate_grid.h"
+#include "core/solve_step.h"
 #include "i_game_validator.h"
 #include "i_solving_strategy.h"
 #include "i_sudoku_solver.h"
 
+#include <expected>
 #include <memory>
 #include <vector>
 

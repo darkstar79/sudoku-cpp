@@ -21,7 +21,10 @@
 #include "../core/observable.h"
 #include "../core/technique_descriptions.h"
 #include "../core/training_types.h"
+#include "core/solve_step.h"
+#include "core/solving_technique.h"
 
+#include <format>
 #include <memory>
 #include <string>
 #include <vector>

@@ -16,14 +16,22 @@
 
 #pragma once
 
+#include "core/cpu_features.h"
+#include "core/i_game_validator.h"
 #include "game_validator.h"
 #include "i_puzzle_generator.h"
 #include "i_puzzle_rater.h"
 #include "solution_counter.h"
 
+#include <expected>
 #include <memory>
 #include <optional>
 #include <random>
+#include <ranges>
+#include <utility>
+#include <vector>
+
+#include <stddef.h>
 
 namespace sudoku::core {
 

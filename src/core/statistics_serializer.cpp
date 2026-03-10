@@ -17,11 +17,21 @@
 #include "statistics_serializer.h"
 
 #include "core/constants.h"
+#include "core/i_puzzle_generator.h"
+#include "core/i_statistics_manager.h"
 
+#include <array>
+#include <ctime>
+#include <exception>
 #include <fstream>
 #include <iomanip>
 #include <string_view>
 
+#include <limits.h>
+#include <stdint.h>
+
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 

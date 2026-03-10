@@ -16,6 +16,10 @@
 
 #include "localization_manager.h"
 
+#include <algorithm>
+
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <yaml-cpp/yaml.h>
 

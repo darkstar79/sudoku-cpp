@@ -16,8 +16,22 @@
 
 #include "../core/string_keys.h"
 #include "core/board_utils.h"
+#include "core/i_game_validator.h"
+#include "core/i_statistics_manager.h"
+#include "core/observable.h"
 #include "game_view_model.h"
+#include "model/game_state.h"
 
+#include <chrono>
+#include <expected>
+#include <format>
+#include <memory>
+#include <string>
+#include <vector>
+
+#include <stddef.h>
+
+#include <fmt/base.h>
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 

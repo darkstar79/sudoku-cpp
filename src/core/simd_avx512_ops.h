@@ -31,10 +31,11 @@
  */
 
 #include "core/board.h"
-#include "core/constants.h"
 
 #include <array>
 #include <cstdint>
+
+#include <stddef.h>
 
 namespace sudoku::core {
 

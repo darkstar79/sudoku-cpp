@@ -16,8 +16,15 @@
 
 #include "core/di_container.h"
 #include "core/game_validator.h"
+#include "core/i_game_validator.h"
 #include "core/i_localization_manager.h"
+#include "core/i_puzzle_generator.h"
+#include "core/i_puzzle_rater.h"
+#include "core/i_save_manager.h"
+#include "core/i_statistics_manager.h"
+#include "core/i_sudoku_solver.h"
 #include "core/i_time_provider.h"
+#include "core/i_training_exercise_generator.h"
 #include "core/localization_manager.h"
 #include "core/puzzle_generator.h"
 #include "core/puzzle_rater.h"
@@ -29,10 +36,19 @@
 #include "view_model/game_view_model.h"
 #include "view_model/training_view_model.h"
 
+#include <expected>
 #include <filesystem>
 #include <memory>
+#include <string>
 
 #include <QApplication>
+#include <fmt/base.h>
+#include <fmt/format.h>
+#include <qcoreapplication.h>
+#include <qstring.h>
+#include <spdlog/common.h>
+#include <spdlog/logger.h>
+#include <spdlog/sinks/ansicolor_sink.h>
 #include <spdlog/sinks/basic_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include <spdlog/spdlog.h>

@@ -14,11 +14,21 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include "core/i_save_manager.h"
 #include "save_manager.h"
 
+#include <chrono>
+#include <exception>
+#include <expected>
 #include <filesystem>
+#include <vector>
 
+#include <stdint.h>
+
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
+#include <zconf.h>
 #include <zlib.h>
 
 namespace {

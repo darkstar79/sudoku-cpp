@@ -18,16 +18,22 @@
 
 #include "constraint_state.h"
 #include "core/board.h"
-#include "core/board_utils.h"
+#include "core/constants.h"
+#include "core/i_puzzle_generator.h"
 #include "cpu_features.h"
 #include "i_game_validator.h"
 #include "simd_constraint_state.h"
 
-#include <algorithm>
 #include <chrono>
+#include <compare>
+#include <optional>
 #include <random>
+#include <tuple>
+#include <utility>
 
 #include <bit>
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::core {

@@ -16,9 +16,11 @@
 
 #pragma once
 
+#include "core/solve_step.h"
 #include "i_puzzle_rater.h"
 #include "i_sudoku_solver.h"
 
+#include <format>
 #include <memory>
 
 namespace sudoku::core {

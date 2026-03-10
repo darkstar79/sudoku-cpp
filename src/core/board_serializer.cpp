@@ -17,6 +17,9 @@
 #include "core/board_serializer.h"
 
 #include "core/board_utils.h"
+#include "core/constants.h"
+
+#include <stddef.h>
 
 namespace sudoku::core {
 

@@ -21,6 +21,8 @@
 #include <chrono>
 #include <expected>
 #include <filesystem>
+#include <format>
+#include <string>
 #include <vector>
 
 namespace sudoku::core::statistics_serializer {

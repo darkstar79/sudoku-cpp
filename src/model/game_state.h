@@ -24,8 +24,10 @@
 #include <chrono>
 #include <memory>
 #include <optional>
-#include <string>
 #include <vector>
+
+#include <stddef.h>
+#include <stdint.h>
 
 namespace sudoku::model {
 

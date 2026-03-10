@@ -25,6 +25,8 @@
 #include <expected>
 #include <vector>
 
+#include <stddef.h>
+
 namespace sudoku::core {
 
 /// Fixed-size open-addressing hash table for Zobrist memoization cache.

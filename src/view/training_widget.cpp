@@ -17,17 +17,27 @@
 #include "training_widget.h"
 
 #include "../core/solving_technique.h"
+#include "core/technique_descriptions.h"
+#include "core/training_types.h"
+#include "view_model/training_view_model.h"
 
 #include <array>
+#include <iterator>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 #include <QGroupBox>
 #include <QLabel>
-#include <QListWidget>
 #include <QPushButton>
 #include <QScrollArea>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+#include <QtCore/qobjectdefs.h>
 #include <fmt/format.h>
+#include <qnamespace.h>
+#include <qstring.h>
+#include <qstringalgorithms.h>
 
 namespace sudoku::view {
 

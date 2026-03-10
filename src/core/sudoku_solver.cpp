@@ -17,6 +17,10 @@
 #include "sudoku_solver.h"
 
 #include "backtracking_solver.h"
+#include "core/candidate_grid.h"
+#include "core/i_game_validator.h"
+#include "core/i_solving_strategy.h"
+#include "core/i_sudoku_solver.h"
 #include "strategies/als_xy_wing_strategy.h"
 #include "strategies/als_xz_strategy.h"
 #include "strategies/avoidable_rectangle_strategy.h"
@@ -59,6 +63,11 @@
 #include "strategies/xy_chain_strategy.h"
 #include "strategies/xy_wing_strategy.h"
 #include "strategies/xyz_wing_strategy.h"
+
+#include <optional>
+#include <utility>
+
+#include <stddef.h>
 
 #include <spdlog/spdlog.h>
 

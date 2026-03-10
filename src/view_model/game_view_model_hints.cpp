@@ -17,8 +17,24 @@
 #include "../core/localized_explanations.h"
 #include "../core/solving_technique.h"
 #include "../core/string_keys.h"
+#include "core/i_game_validator.h"
+#include "core/i_statistics_manager.h"
+#include "core/i_sudoku_solver.h"
+#include "core/observable.h"
+#include "core/solve_step.h"
 #include "game_view_model.h"
+#include "model/game_state.h"
 
+#include <chrono>
+#include <expected>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
+
+#include <fmt/base.h>
+#include <fmt/format.h>
 #include <spdlog/spdlog.h>
 
 namespace sudoku::viewmodel {
