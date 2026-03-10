@@ -87,8 +87,8 @@ private:
         size_t row_set = 0;
         size_t col_set = 0;
         for (const auto& pos : box_cells) {
-            row_set |= (1u << (pos.row - box_start_row));
-            col_set |= (1u << (pos.col - box_start_col));
+            row_set |= (size_t{1} << (pos.row - box_start_row));
+            col_set |= (size_t{1} << (pos.col - box_start_col));
         }
 
         int row_count = std::popcount(static_cast<unsigned>(row_set));

@@ -68,7 +68,46 @@ See [CONAN_PROFILES.md](docs/CONAN_PROFILES.md) for detailed profile documentati
 
 ## Building the Project
 
-### Quick Start
+### Windows (MSVC + Qt6)
+
+**Prerequisites:**
+
+1. **Visual Studio 2022/2026** with the *Desktop development with C++* workload
+2. **Qt6** — install via [Qt Online Installer](https://www.qt.io/download-qt-installer), selecting the **MSVC 2022 64-bit** component
+3. **Conan 2** — `pip install conan`
+4. **CMake** — bundled with Conan or install separately
+
+**One-time setup:**
+
+```bat
+REM Generate a Conan profile matching your MSVC installation
+conan profile detect --name msvc-release
+conan profile detect --name msvc-debug
+
+REM Point CMake to your Qt6 MSVC kit (adjust version path)
+set QT6_DIR=C:\Qt\6.10.0\msvc2022_64
+```
+
+**Build and run:**
+
+```bat
+REM Release build
+scripts\build_windows.bat
+
+REM Debug build
+scripts\build_windows_debug.bat
+
+REM Run
+build\Release\bin\sudoku.exe
+```
+
+The build scripts auto-detect the Visual Studio installation via `vswhere`. The `QT6_DIR` variable can also be set permanently in your system environment variables to avoid setting it each session.
+
+See [CONAN_PROFILES.md](docs/CONAN_PROFILES.md) for MSVC profile details and manual profile configuration.
+
+---
+
+### Quick Start (Linux/macOS)
 
 ```bash
 # Install dependencies and configure

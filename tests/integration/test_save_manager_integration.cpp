@@ -349,6 +349,9 @@ TEST_CASE("SaveManager - Move history persistence", "[save_manager][integration]
 
 TEST_CASE("SaveManager - Filesystem Error Paths", "[save_manager][integration][errors]") {
     SECTION("Read-only directory prevents saves") {
+#ifdef _WIN32
+        SKIP("Windows does not honour POSIX read-only directory permissions via std::filesystem");
+#else
         SaveManagerTestFixture fixture;
 
         // Make directory read-only
@@ -364,9 +367,13 @@ TEST_CASE("SaveManager - Filesystem Error Paths", "[save_manager][integration][e
 
         // Restore permissions for cleanup
         fs::permissions(fixture.test_dir_, fs::perms::owner_all, fs::perm_options::replace);
+#endif
     }
 
     SECTION("Read-only directory prevents file deletion") {
+#ifdef _WIN32
+        SKIP("Windows does not honour POSIX read-only directory permissions via std::filesystem");
+#else
         SaveManagerTestFixture fixture;
 
         // Create and save a game
@@ -387,6 +394,7 @@ TEST_CASE("SaveManager - Filesystem Error Paths", "[save_manager][integration][e
 
         // Restore permissions for cleanup
         fs::permissions(fixture.test_dir_, fs::perms::owner_all, fs::perm_options::replace);
+#endif
     }
 
     SECTION("Non-existent parent directory") {
