@@ -25,13 +25,12 @@
 
 #include <algorithm>
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <expected>
 #include <set>
 #include <tuple>
 #include <utility>
-
-#include <stddef.h>
-#include <stdint.h>
 
 #include <fmt/base.h>
 #include <fmt/format.h>

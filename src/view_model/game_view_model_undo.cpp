@@ -23,13 +23,12 @@
 #include "model/game_state.h"
 
 #include <chrono>
+#include <cstddef>
 #include <expected>
 #include <format>
 #include <memory>
 #include <string>
 #include <vector>
-
-#include <stddef.h>
 
 #include <fmt/base.h>
 #include <fmt/format.h>

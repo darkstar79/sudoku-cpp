@@ -71,14 +71,14 @@ public:
         T old_value = value_;
         std::forward<Func>(updater)(value_);
 #ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable : 4702)  // MSVC false positive: unreachable code in template instantiation
+#    pragma warning(push)
+#    pragma warning(disable : 4702)  // MSVC false positive: unreachable code in template instantiation
 #endif
         if (value_ != old_value) {
             notifyObservers();
         }
 #ifdef _MSC_VER
-#pragma warning(pop)
+#    pragma warning(pop)
 #endif
     }
 

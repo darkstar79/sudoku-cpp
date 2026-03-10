@@ -28,14 +28,13 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <expected>
 #include <filesystem>
 #include <memory>
 #include <set>
 #include <string>
 #include <vector>
-
-#include <stddef.h>
 
 #include <fmt/base.h>
 #include <fmt/format.h>
