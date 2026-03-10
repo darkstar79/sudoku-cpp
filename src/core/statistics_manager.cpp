@@ -28,14 +28,14 @@
 
 namespace sudoku::core {
 
-StatisticsManager::StatisticsManager(const std::string& stats_directory, std::shared_ptr<ITimeProvider> time_provider)
+StatisticsManager::StatisticsManager(std::filesystem::path stats_directory, std::shared_ptr<ITimeProvider> time_provider)
     : time_provider_(std::move(time_provider)) {
     if (stats_directory.empty()) {
         // Use platform-appropriate default directory
         stats_directory_ =
             infrastructure::AppDirectoryManager::getDefaultDirectory(infrastructure::DirectoryType::Statistics);
     } else {
-        stats_directory_ = stats_directory;
+        stats_directory_ = std::move(stats_directory);
     }
 
     stats_file_ = stats_directory_ / "aggregate_stats.yaml";

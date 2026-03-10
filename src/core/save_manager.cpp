@@ -43,14 +43,14 @@ inline constexpr int HOURS_PER_DAY = 24;
 
 namespace sudoku::core {
 
-SaveManager::SaveManager(const std::string& save_directory)
+SaveManager::SaveManager(std::filesystem::path save_directory)
     : encryption_manager_(std::make_unique<EncryptionManager>()) {
     if (save_directory.empty()) {
         // Use platform-appropriate default directory
         save_directory_ =
             infrastructure::AppDirectoryManager::getDefaultDirectory(infrastructure::DirectoryType::Saves);
     } else {
-        save_directory_ = save_directory;
+        save_directory_ = std::move(save_directory);
     }
 
     auto_save_path_ = save_directory_ / "autosave.yaml";
@@ -90,7 +90,11 @@ std::expected<std::string, SaveError> SaveManager::saveGame(const SavedGame& gam
                 auto now = std::chrono::system_clock::now();
                 auto time_t_val = std::chrono::system_clock::to_time_t(now);
                 std::tm tm_val{};
+#ifdef _MSC_VER
+                if (localtime_s(&tm_val, &time_t_val) == 0) {
+#else
                 if (localtime_r(&time_t_val, &tm_val) != nullptr) {
+#endif
                     game_copy.display_name = fmt::format(
                         "{} Game {:%Y-%m-%d %H:%M}", difficulty_names[static_cast<int>(game_copy.difficulty)], tm_val);
                 } else {

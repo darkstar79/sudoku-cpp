@@ -125,6 +125,10 @@ inline constexpr auto PEER_TABLE = generatePeerTable();
  * - Cells 0-80: Valid Sudoku cells
  * - Cells 81-95: Padding (set to 0 to exclude from MRV search)
  */
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4324)  // structure was padded due to __declspec(align())
+#endif
 struct alignas(SIMD_ALIGNMENT) SIMDConstraintState {
     /// Candidate bitmasks for all cells (SoA layout)
     /// Bit N (0-8) is set if digit (N+1) is a valid candidate
@@ -361,5 +365,8 @@ struct alignas(SIMD_ALIGNMENT) SIMDConstraintState {
     template <typename BoardT>
     [[nodiscard]] std::pair<int, int> findHiddenSingleImpl(const BoardT& board, uint32_t dirty_regions) const;
 };
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 }  // namespace sudoku::core

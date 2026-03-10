@@ -31,7 +31,7 @@ class EncryptionManager;
 /// Handles game persistence with optional compression and encryption
 class SaveManager : public ISaveManager {
 public:
-    explicit SaveManager(const std::string& save_directory = "");
+    explicit SaveManager(std::filesystem::path save_directory = {});
     ~SaveManager() override;  // Destructor in .cpp due to unique_ptr<EncryptionManager>
     SaveManager(const SaveManager&) = delete;
     SaveManager& operator=(const SaveManager&) = delete;

@@ -47,16 +47,15 @@ namespace {
 /// Without this, using AVX instructions would silently corrupt state.
 [[nodiscard]] bool osSupportsAvx() {
     // First check if OSXSAVE is enabled (CPUID.1:ECX bit 27)
-    unsigned int eax = 0;
-    unsigned int ebx = 0;
     unsigned int ecx = 0;
-    unsigned int edx = 0;
-
 #ifdef _MSC_VER
     int regs[4];
     __cpuid(regs, 1);
     ecx = static_cast<unsigned int>(regs[2]);
 #else
+    unsigned int eax = 0;
+    unsigned int ebx = 0;
+    unsigned int edx = 0;
     __get_cpuid(1, &eax, &ebx, &ecx, &edx);
 #endif
 

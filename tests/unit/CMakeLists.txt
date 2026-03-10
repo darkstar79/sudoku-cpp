@@ -13,6 +13,11 @@ target_link_libraries(unit_tests PUBLIC
     Catch2::Catch2WithMain
 )
 
+# MSVC: suppress C4834 (discarded [[nodiscard]] result) and C4702 (unreachable code in templates) in tests
+if(MSVC)
+    target_compile_options(unit_tests PRIVATE /wd4834 /wd4702)
+endif()
+
 # Add to test suite
 add_test(NAME unit_tests COMMAND unit_tests)
 

@@ -29,7 +29,7 @@ namespace sudoku::core {
 /// Handles game statistics tracking and persistence
 class StatisticsManager : public IStatisticsManager {
 public:
-    explicit StatisticsManager(const std::string& stats_directory = "",
+    explicit StatisticsManager(std::filesystem::path stats_directory = {},
                                std::shared_ptr<ITimeProvider> time_provider = std::make_shared<SystemTimeProvider>());
     ~StatisticsManager() override;
     StatisticsManager(const StatisticsManager&) = delete;
