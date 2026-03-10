@@ -291,6 +291,40 @@ make -j$(nproc) tidy
 HeaderFilterRegex: 'src/.*\.h$'
 ```
 
+## Include Hygiene (IWYU)
+
+[include-what-you-use](https://include-what-you-use.org/) verifies that each source file directly
+includes only the headers it uses — no more, no less. It catches:
+
+- **Redundant includes** — headers included but not directly used
+- **Missing direct includes** — relying on a header transitively included by another header
+- **Unnecessary transitive dependencies** — fragile includes that break if an indirect chain changes
+
+### Installation and Usage
+
+```bash
+# Install (once)
+sudo apt-get install iwyu
+
+# Report include issues
+./scripts/iwyu.sh
+
+# Apply fixes automatically
+./scripts/iwyu.sh --fix
+```
+
+Output is saved to `build/iwyu-report/iwyu.log`. A compiled build must exist first
+(`cmake --build build/Release`).
+
+### Notes
+
+- Analysis runs on `src/` files only — Qt and third-party headers are excluded
+- `-Xiwyu --no_fwd_decls` suppresses forward-declaration suggestions (too noisy in practice)
+- After `--fix`, review changes with `git diff` before committing — IWYU suggestions
+  occasionally need manual adjustment for Qt headers
+
+---
+
 ## Test Coverage (gcovr)
 
 ### Quick Start

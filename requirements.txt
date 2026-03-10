@@ -1,0 +1,5 @@
+# Python dependencies for development tooling
+# Install with: pip install -r requirements.txt
+
+# C++ package manager (see README for build instructions)
+conan>=2.18.1
