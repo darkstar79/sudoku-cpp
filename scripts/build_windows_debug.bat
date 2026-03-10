@@ -98,14 +98,24 @@ if %ERRORLEVEL% NEQ 0 (
 REM ---------------------------------------------------------------------------
 REM 6. Build
 REM ---------------------------------------------------------------------------
-echo [3/3] Building project (Debug)...
+echo [3/4] Building project (Debug)...
 cmake --build build\Debug --config Debug
 if %ERRORLEVEL% NEQ 0 (
     echo ERROR: Build failed
     exit /b %ERRORLEVEL%
 )
 
+REM ---------------------------------------------------------------------------
+REM 7. Deploy Qt runtime DLLs
+REM ---------------------------------------------------------------------------
+echo [4/4] Deploying Qt runtime (windeployqt)...
+"%QT6_DIR%\bin\windeployqt.exe" --debug --no-translations build\Debug\bin\Debug\sudoku.exe
+if %ERRORLEVEL% NEQ 0 (
+    echo ERROR: windeployqt failed
+    exit /b %ERRORLEVEL%
+)
+
 echo ==================================================
 echo Debug build successful!
-echo Executable: build\Debug\bin\sudoku.exe
+echo Executable: build\Debug\bin\Debug\sudoku.exe
 echo ==================================================
