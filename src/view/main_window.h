@@ -47,6 +47,7 @@ class TestBoardInteraction;
 class TestKeyboardHandling;
 class TestMenuToolbarActions;
 class TestViewModelBinding;
+class TestTrainingWidget;
 #endif
 
 namespace sudoku::view {
@@ -163,6 +164,7 @@ private:
     friend class ::TestKeyboardHandling;
     friend class ::TestMenuToolbarActions;
     friend class ::TestViewModelBinding;
+    friend class ::TestTrainingWidget;
 #endif
 };
 

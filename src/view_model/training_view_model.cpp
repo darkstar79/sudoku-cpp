@@ -21,6 +21,8 @@
 #include "core/i_training_exercise_generator.h"
 #include "core/observable.h"
 #include "core/technique_descriptions.h"
+#include "core/training_answer_validator.h"
+#include "core/training_hints.h"
 #include "core/training_types.h"
 
 #include <algorithm>
@@ -28,6 +30,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <set>
 #include <tuple>
 #include <utility>
@@ -41,8 +44,10 @@ namespace sudoku::viewmodel {
 using namespace core;
 
 TrainingViewModel::TrainingViewModel(std::shared_ptr<ITrainingExerciseGenerator> exercise_generator,
-                                     std::shared_ptr<ILocalizationManager> loc_manager)
-    : exercise_generator_(std::move(exercise_generator)), loc_manager_(std::move(loc_manager)) {
+                                     std::shared_ptr<ILocalizationManager> loc_manager,
+                                     std::shared_ptr<ITrainingStatisticsManager> stats_manager)
+    : exercise_generator_(std::move(exercise_generator)), loc_manager_(std::move(loc_manager)),
+      stats_manager_(std::move(stats_manager)) {
 }
 
 void TrainingViewModel::selectTechnique(SolvingTechnique technique) {
@@ -88,6 +93,7 @@ void TrainingViewModel::startExercises() {
     loadExerciseBoard();
 }
 
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) — submit flow with continue-on-correct logic; nesting is inherent
 void TrainingViewModel::submitAnswer(const TrainingBoard& player_board) {
     const auto& state = trainingState.get();
     if (state.phase != TrainingPhase::Exercise) {
@@ -100,28 +106,49 @@ void TrainingViewModel::submitAnswer(const TrainingBoard& player_board) {
     }
 
     const auto& exercise = exercises_[idx];
-    const auto& expected = exercise.expected_step;
 
-    AnswerResult result{};
+    EvalResult eval{};
     if (exercise.interaction_mode == TrainingInteractionMode::Placement) {
-        result = evaluatePlacement(player_board, expected);
+        eval = evaluatePlacement(player_board, exercise);
     } else {
-        result = evaluateElimination(player_board, expected);
+        eval = evaluateElimination(player_board, exercise);
     }
 
-    auto feedback = buildFeedback(result, expected);
+    // Use matched step for feedback if available, otherwise fall back to expected
+    const auto& feedback_step = eval.matched_step.has_value() ? eval.matched_step.value() : exercise.expected_step;
 
+    if (eval.result == AnswerResult::Correct && eval.matched_step.has_value()) {
+        // Check if more of the original steps remain to be found
+        if (found_step_count_ + 1 < initial_step_count_) {
+            // More steps remain — apply and continue
+            applyContinue(feedback_step);
+            found_step_count_++;
+            auto msg = fmt::format("Correct! {} Find the next one.", feedback_step.explanation);
+            trainingState.update([&msg](TrainingUIState& s) {
+                s.correct_count++;
+                s.found_step_message = msg;
+                s.current_hint_level = 0;
+            });
+            return;
+        }
+        // Last step found — fall through to normal Feedback
+    }
+
+    auto feedback = buildFeedback(eval.result, feedback_step);
+    buildDiffBoard(player_board, exercise, feedback_step);
+
+    auto result = eval.result;
     trainingState.update([result, &feedback](TrainingUIState& s) {
         s.phase = TrainingPhase::Feedback;
         s.last_result = result;
         s.feedback_message = feedback;
+        s.found_step_message.clear();
         if (result == AnswerResult::Correct) {
             s.correct_count++;
         }
     });
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity) — hint flow with step type + phase branching; nesting is inherent
 void TrainingViewModel::requestHint() {
     const auto& state = trainingState.get();
     if (state.phase != TrainingPhase::Exercise || state.current_hint_level >= 3) {
@@ -137,34 +164,22 @@ void TrainingViewModel::requestHint() {
     const auto& expected = exercise.expected_step;
 
     int new_level = state.current_hint_level + 1;
+    auto hint = getTrainingHint(exercise.technique, new_level, expected);
 
-    trainingState.update([new_level](TrainingUIState& s) {
+    trainingState.update([new_level, &hint](TrainingUIState& s) {
         s.current_hint_level = new_level;
         s.hints_used++;
+        s.feedback_message = hint.text;
     });
 
-    // Update board with progressive hints
-    trainingBoard.update([&expected, new_level](TrainingBoard& board) {
-        if (new_level >= 2) {
-            // Level 2+: Highlight pattern cells with role-specific colors
-            const auto& roles = expected.explanation_data.position_roles;
-            for (size_t i = 0; i < expected.explanation_data.positions.size(); ++i) {
-                const auto& pos = expected.explanation_data.positions[i];
-                if (pos.row < 9 && pos.col < 9) {
-                    board[pos.row][pos.col].highlight_role = (i < roles.size()) ? roles[i] : CellRole::Pattern;
-                    board[pos.row][pos.col].player_selected = true;
-                }
-            }
-        }
-
-        if (new_level >= 3) {
-            // Level 3: Full reveal — show eliminations
-            if (expected.type == SolveStepType::Elimination) {
-                for (const auto& elim : expected.eliminations) {
-                    if (elim.position.row < 9 && elim.position.col < 9) {
-                        board[elim.position.row][elim.position.col].player_selected = true;
-                    }
-                }
+    // Apply hint highlights to the board
+    trainingBoard.update([&hint](TrainingBoard& board) {
+        for (size_t i = 0; i < hint.highlight_cells.size(); ++i) {
+            const auto& pos = hint.highlight_cells[i];
+            if (pos.row < 9 && pos.col < 9) {
+                board[pos.row][pos.col].highlight_role =
+                    (i < hint.highlight_roles.size()) ? hint.highlight_roles[i] : CellRole::Pattern;
+                board[pos.row][pos.col].player_selected = true;
             }
         }
     });
@@ -178,6 +193,7 @@ void TrainingViewModel::skipExercise() {
 
     int next_idx = state.exercise_index + 1;
     if (next_idx >= state.total_exercises) {
+        recordLessonStats();
         trainingState.update([](TrainingUIState& s) { s.phase = TrainingPhase::LessonComplete; });
     } else {
         trainingState.update([next_idx](TrainingUIState& s) {
@@ -210,6 +226,7 @@ void TrainingViewModel::nextExercise() {
 
     int next_idx = state.exercise_index + 1;
     if (next_idx >= state.total_exercises) {
+        recordLessonStats();
         trainingState.update([](TrainingUIState& s) { s.phase = TrainingPhase::LessonComplete; });
     } else {
         trainingState.update([next_idx](TrainingUIState& s) {
@@ -223,8 +240,70 @@ void TrainingViewModel::nextExercise() {
 
 void TrainingViewModel::returnToSelection() {
     exercises_.clear();
+    clearHistory();
     trainingState.set(TrainingUIState{});  // Reset to defaults (TechniqueSelection)
     trainingBoard.set(TrainingBoard{});
+    feedbackBoard.set(TrainingBoard{});
+}
+
+void TrainingViewModel::recordBoardChange(const TrainingBoard& board) {
+    pushSnapshot(board);
+    trainingBoard.set(board);
+}
+
+void TrainingViewModel::undo() {
+    if (!canUndo()) {
+        return;
+    }
+
+    --history_index_;
+    trainingBoard.set(board_history_[static_cast<size_t>(history_index_)]);
+
+    // Clear hint highlights (snapshot won't have them)
+    trainingState.update([](TrainingUIState& s) { s.current_hint_level = 0; });
+}
+
+void TrainingViewModel::redo() {
+    if (!canRedo()) {
+        return;
+    }
+
+    ++history_index_;
+    trainingBoard.set(board_history_[static_cast<size_t>(history_index_)]);
+}
+
+bool TrainingViewModel::canUndo() const {
+    return history_index_ > 0;
+}
+
+bool TrainingViewModel::canRedo() const {
+    return history_index_ < static_cast<int>(board_history_.size()) - 1;
+}
+
+void TrainingViewModel::revealSolution() {
+    const auto& state = trainingState.get();
+    if (state.phase != TrainingPhase::Feedback) {
+        return;
+    }
+
+    auto idx = static_cast<size_t>(state.exercise_index);
+    if (idx >= exercises_.size()) {
+        return;
+    }
+
+    const auto& exercise = exercises_[idx];
+    auto hint = getTrainingHint(exercise.technique, 3, exercise.expected_step);
+
+    feedbackBoard.update([&hint](TrainingBoard& board) {
+        for (size_t i = 0; i < hint.highlight_cells.size(); ++i) {
+            const auto& pos = hint.highlight_cells[i];
+            if (pos.row < 9 && pos.col < 9) {
+                board[pos.row][pos.col].highlight_role =
+                    (i < hint.highlight_roles.size()) ? hint.highlight_roles[i] : CellRole::Pattern;
+                board[pos.row][pos.col].player_selected = true;
+            }
+        }
+    });
 }
 
 TechniqueDescription TrainingViewModel::currentDescription() const {
@@ -232,6 +311,27 @@ TechniqueDescription TrainingViewModel::currentDescription() const {
 }
 
 // --- Private helpers ---
+
+void TrainingViewModel::pushSnapshot(const TrainingBoard& board) {
+    // Truncate redo history beyond current position
+    if (history_index_ + 1 < static_cast<int>(board_history_.size())) {
+        board_history_.erase(board_history_.begin() + history_index_ + 1, board_history_.end());
+    }
+
+    board_history_.push_back(board);
+
+    // Cap at maximum history size
+    if (static_cast<int>(board_history_.size()) > kMaxUndoHistory) {
+        board_history_.erase(board_history_.begin());
+    }
+
+    history_index_ = static_cast<int>(board_history_.size()) - 1;
+}
+
+void TrainingViewModel::clearHistory() {
+    board_history_.clear();
+    history_index_ = -1;
+}
 
 void TrainingViewModel::loadExerciseBoard() {
     auto idx = static_cast<size_t>(trainingState.get().exercise_index);
@@ -261,51 +361,292 @@ void TrainingViewModel::loadExerciseBoard() {
         }
     }
 
+    clearHistory();
+    pushSnapshot(board);
     trainingBoard.set(board);
+
+    // Precompute how many valid steps exist on the original board
+    auto candidates = TrainingAnswerValidator::reconstructCandidates(exercise.board, exercise.candidate_masks);
+    auto all_steps = TrainingAnswerValidator::findAllSteps(exercise.board, candidates, exercise.technique);
+    initial_step_count_ = static_cast<int>(all_steps.size());
+    found_step_count_ = 0;
 }
 
-AnswerResult TrainingViewModel::evaluatePlacement(const TrainingBoard& player_board, const SolveStep& expected) {
-    const auto& pos = expected.position;
-    if (pos.row >= 9 || pos.col >= 9) {
-        return AnswerResult::Incorrect;
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) — applies step to board+masks with placement/elimination paths; nesting is inherent
+void TrainingViewModel::applyContinue(const SolveStep& matched_step) {
+    auto idx = static_cast<size_t>(trainingState.get().exercise_index);
+    if (idx >= exercises_.size()) {
+        return;
     }
 
-    const auto& cell = player_board[pos.row][pos.col];
-    if (cell.value == expected.value) {
-        return AnswerResult::Correct;
-    }
+    auto& exercise = exercises_[idx];
 
-    // Check if the player placed the right value somewhere else
-    for (size_t r = 0; r < 9; ++r) {
-        for (size_t c = 0; c < 9; ++c) {
-            if (player_board[r][c].player_selected && player_board[r][c].value == expected.value) {
-                return AnswerResult::Incorrect;  // Right value, wrong cell
+    // Apply the step to the exercise's stored board and candidate masks
+    if (matched_step.type == SolveStepType::Placement) {
+        exercise.board[matched_step.position.row][matched_step.position.col] = matched_step.value;
+        // Clear candidate mask for the placed cell
+        exercise.candidate_masks[(matched_step.position.row * 9) + matched_step.position.col] = 0;
+        // Remove this value as a candidate from peers (same row/col/box)
+        for (size_t i = 0; i < 9; ++i) {
+            // Same row
+            exercise.candidate_masks[(matched_step.position.row * 9) + i] &=
+                ~static_cast<uint16_t>(1 << matched_step.value);
+            // Same col
+            exercise.candidate_masks[(i * 9) + matched_step.position.col] &=
+                ~static_cast<uint16_t>(1 << matched_step.value);
+        }
+        // Same box
+        size_t box_r = (matched_step.position.row / 3) * 3;
+        size_t box_c = (matched_step.position.col / 3) * 3;
+        for (size_t br = 0; br < 3; ++br) {
+            for (size_t bc = 0; bc < 3; ++bc) {
+                exercise.candidate_masks[((box_r + br) * 9) + box_c + bc] &=
+                    ~static_cast<uint16_t>(1 << matched_step.value);
             }
+        }
+    } else {
+        for (const auto& elim : matched_step.eliminations) {
+            exercise.candidate_masks[(elim.position.row * 9) + elim.position.col] &=
+                ~static_cast<uint16_t>(1 << elim.value);
         }
     }
 
-    return AnswerResult::Incorrect;
+    // Update the training board: apply the step and mark cells as found
+    trainingBoard.update([&matched_step](TrainingBoard& board) {
+        if (matched_step.type == SolveStepType::Placement) {
+            auto& cell = board[matched_step.position.row][matched_step.position.col];
+            cell.value = matched_step.value;
+            cell.candidates.clear();
+            cell.is_found = true;
+            cell.highlight_role = CellRole::CorrectAnswer;
+
+            // Remove placed value from peer cells' candidates (same row/col/box)
+            size_t row = matched_step.position.row;
+            size_t col = matched_step.position.col;
+            for (size_t i = 0; i < 9; ++i) {
+                auto& row_peer = board[row][i];
+                std::erase(row_peer.candidates, matched_step.value);
+                auto& col_peer = board[i][col];
+                std::erase(col_peer.candidates, matched_step.value);
+            }
+            size_t box_r = (row / 3) * 3;
+            size_t box_c = (col / 3) * 3;
+            for (size_t br = 0; br < 3; ++br) {
+                for (size_t bc = 0; bc < 3; ++bc) {
+                    std::erase(board[box_r + br][box_c + bc].candidates, matched_step.value);
+                }
+            }
+        } else {
+            for (const auto& elim : matched_step.eliminations) {
+                auto& cell = board[elim.position.row][elim.position.col];
+                auto iter = std::ranges::find(cell.candidates, elim.value);
+                if (iter != cell.candidates.end()) {
+                    cell.candidates.erase(iter);
+                }
+                cell.is_found = true;
+                cell.highlight_role = CellRole::CorrectAnswer;
+            }
+        }
+
+        // Clear player_selected on all cells for the next attempt
+        for (auto& row : board) {
+            for (auto& cell : row) {
+                if (!cell.is_found) {
+                    cell.player_selected = false;
+                }
+            }
+        }
+    });
+
+    clearHistory();
+    pushSnapshot(trainingBoard.get());
+
+    // Update expected_step to point to a remaining valid step (for hints)
+    auto candidates = TrainingAnswerValidator::reconstructCandidates(exercise.board, exercise.candidate_masks);
+    auto remaining = TrainingAnswerValidator::findAllSteps(exercise.board, candidates, exercise.technique);
+    if (!remaining.empty()) {
+        exercise.expected_step = remaining.front();
+    }
 }
 
-// NOLINTNEXTLINE(readability-function-cognitive-complexity) — evaluates player's elimination against expected step; set-difference logic with multiple correctness criteria; nesting is inherent
-AnswerResult TrainingViewModel::evaluateElimination(const TrainingBoard& player_board,
-                                                    const SolveStep& expected) const {
-    // Build set of expected eliminations: {(row, col, value)}
-    std::set<std::tuple<size_t, size_t, int>> expected_set;
-    for (const auto& elim : expected.eliminations) {
-        expected_set.emplace(elim.position.row, elim.position.col, elim.value);
+bool TrainingViewModel::hasMoreSteps() const {
+    return found_step_count_ < initial_step_count_;
+}
+
+TrainingViewModel::EvalResult TrainingViewModel::evaluatePlacement(const TrainingBoard& player_board,
+                                                                   const TrainingExercise& exercise) const {
+    // Find what the player placed: either a player_selected cell with a value,
+    // or a cell that was empty in the exercise but now has a value
+    std::optional<Position> player_pos;
+    int player_value = 0;
+    for (size_t r = 0; r < 9; ++r) {
+        for (size_t c = 0; c < 9; ++c) {
+            const auto& cell = player_board[r][c];
+            bool was_empty = (exercise.board[r][c] == 0);
+            bool has_placement = (cell.value != 0) && (cell.player_selected || was_empty);
+            if (has_placement && was_empty) {
+                player_pos = Position{.row = r, .col = c};
+                player_value = cell.value;
+                break;
+            }
+        }
+        if (player_pos.has_value()) {
+            break;
+        }
     }
 
+    if (!player_pos.has_value()) {
+        return {.result = AnswerResult::Incorrect, .matched_step = std::nullopt};
+    }
+
+    // Fast path: check against the stored expected step first
+    if (player_pos.value() == exercise.expected_step.position && player_value == exercise.expected_step.value) {
+        return {.result = AnswerResult::Correct, .matched_step = exercise.expected_step};
+    }
+
+    // Check against ALL valid instances of the technique on this board state
+    auto candidates = TrainingAnswerValidator::reconstructCandidates(exercise.board, exercise.candidate_masks);
+    auto matched = TrainingAnswerValidator::validatePlacement(exercise.board, candidates, exercise.technique,
+                                                              player_pos.value(), player_value);
+    if (matched.has_value()) {
+        return {.result = AnswerResult::Correct, .matched_step = std::move(matched)};
+    }
+
+    return {.result = AnswerResult::Incorrect, .matched_step = std::nullopt};
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) — evaluates player's elimination against all valid steps; set-difference logic with multiple correctness criteria; nesting is inherent
+TrainingViewModel::EvalResult TrainingViewModel::evaluateElimination(const TrainingBoard& player_board,
+                                                                     const TrainingExercise& exercise) const {
     // Build set of player-marked eliminations
-    // A player "eliminates" by selecting cells and marking candidates
     std::set<std::tuple<size_t, size_t, int>> player_set;
     for (size_t r = 0; r < 9; ++r) {
         for (size_t c = 0; c < 9; ++c) {
             if (player_board[r][c].player_selected) {
-                // Find which candidates the player removed vs the exercise board
-                const auto& exercise_idx = static_cast<size_t>(trainingState.get().exercise_index);
-                if (exercise_idx < exercises_.size()) {
-                    uint16_t original_mask = exercises_[exercise_idx].candidate_masks[(r * 9) + c];
+                uint16_t original_mask = exercise.candidate_masks[(r * 9) + c];
+                for (int v = 1; v <= 9; ++v) {
+                    bool was_candidate = (original_mask & (1 << v)) != 0;
+                    bool still_in_player = std::ranges::contains(player_board[r][c].candidates, v);
+                    if (was_candidate && !still_in_player) {
+                        player_set.emplace(r, c, v);
+                    }
+                }
+            }
+        }
+    }
+
+    if (player_set.empty()) {
+        return {.result = AnswerResult::Incorrect, .matched_step = std::nullopt};
+    }
+
+    // First check against the stored expected step (always valid)
+    std::set<std::tuple<size_t, size_t, int>> expected_set;
+    for (const auto& elim : exercise.expected_step.eliminations) {
+        expected_set.emplace(elim.position.row, elim.position.col, elim.value);
+    }
+
+    if (player_set == expected_set) {
+        return {.result = AnswerResult::Correct, .matched_step = exercise.expected_step};
+    }
+
+    // Then check against ALL other valid instances of the technique
+    auto candidates = TrainingAnswerValidator::reconstructCandidates(exercise.board, exercise.candidate_masks);
+    auto matched =
+        TrainingAnswerValidator::validateElimination(exercise.board, candidates, exercise.technique, player_set);
+    if (matched.has_value()) {
+        return {.result = AnswerResult::Correct, .matched_step = std::move(matched)};
+    }
+
+    size_t correct_count = 0;
+    for (const auto& p : player_set) {
+        if (expected_set.contains(p)) {
+            correct_count++;
+        }
+    }
+
+    // Also check partial correctness against all valid steps
+    auto all_steps = TrainingAnswerValidator::findAllSteps(exercise.board, candidates, exercise.technique);
+    for (const auto& step : all_steps) {
+        std::set<std::tuple<size_t, size_t, int>> step_set;
+        for (const auto& elim : step.eliminations) {
+            step_set.emplace(elim.position.row, elim.position.col, elim.value);
+        }
+        size_t step_correct = 0;
+        for (const auto& p : player_set) {
+            if (step_set.contains(p)) {
+                step_correct++;
+            }
+        }
+        correct_count = std::max(correct_count, step_correct);
+    }
+
+    if (correct_count > 0) {
+        return {.result = AnswerResult::PartiallyCorrect, .matched_step = std::nullopt};
+    }
+
+    return {.result = AnswerResult::Incorrect, .matched_step = std::nullopt};
+}
+
+std::string TrainingViewModel::buildFeedback(AnswerResult result, const SolveStep& step) {
+    switch (result) {
+        case AnswerResult::Correct:
+            return fmt::format("Correct! {}", step.explanation);
+        case AnswerResult::PartiallyCorrect:
+            return fmt::format("Partially correct. {}", step.explanation);
+        case AnswerResult::Incorrect:
+            return fmt::format("Not quite. {}", step.explanation);
+    }
+    return "Unknown result.";
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity) — builds diff board with placement/elimination logic; nesting is inherent
+void TrainingViewModel::buildDiffBoard(const TrainingBoard& player_board, const TrainingExercise& exercise,
+                                       const SolveStep& matched_step) {
+    // Start from the player's board as a snapshot
+    TrainingBoard diff = player_board;
+
+    const auto& expected = matched_step;
+
+    if (exercise.interaction_mode == TrainingInteractionMode::Placement) {
+        const auto& pos = expected.position;
+        if (pos.row < 9 && pos.col < 9) {
+            auto& cell = diff[pos.row][pos.col];
+            if (cell.value == expected.value) {
+                cell.highlight_role = CellRole::CorrectAnswer;
+            } else if (cell.player_selected && cell.value != 0) {
+                cell.highlight_role = CellRole::WrongAnswer;
+                // Also mark the expected cell as missed
+                diff[pos.row][pos.col].highlight_role = CellRole::WrongAnswer;
+            }
+        }
+        // Mark any player-placed value at the wrong cell
+        for (size_t r = 0; r < 9; ++r) {
+            for (size_t c = 0; c < 9; ++c) {
+                if (player_board[r][c].player_selected && player_board[r][c].value != 0) {
+                    if (r != pos.row || c != pos.col) {
+                        diff[r][c].highlight_role = CellRole::WrongAnswer;
+                    }
+                }
+            }
+        }
+        // Mark expected cell as missed if player didn't place there
+        if (pos.row < 9 && pos.col < 9 && diff[pos.row][pos.col].highlight_role != CellRole::CorrectAnswer) {
+            diff[pos.row][pos.col].highlight_role = CellRole::MissedAnswer;
+            diff[pos.row][pos.col].player_selected = true;
+        }
+    } else {
+        // Elimination mode: compare expected vs player elimination sets
+        std::set<std::tuple<size_t, size_t, int>> expected_set;
+        for (const auto& elim : expected.eliminations) {
+            expected_set.emplace(elim.position.row, elim.position.col, elim.value);
+        }
+
+        // Find player eliminations
+        std::set<std::tuple<size_t, size_t, int>> player_set;
+        for (size_t r = 0; r < 9; ++r) {
+            for (size_t c = 0; c < 9; ++c) {
+                if (player_board[r][c].player_selected) {
+                    uint16_t original_mask = exercise.candidate_masks[(r * 9) + c];
                     for (int v = 1; v <= 9; ++v) {
                         bool was_candidate = (original_mask & (1 << v)) != 0;
                         bool still_in_player = std::ranges::contains(player_board[r][c].candidates, v);
@@ -316,37 +657,63 @@ AnswerResult TrainingViewModel::evaluateElimination(const TrainingBoard& player_
                 }
             }
         }
-    }
 
-    if (player_set == expected_set) {
-        return AnswerResult::Correct;
-    }
+        // Collect cells that need highlighting
+        std::set<std::pair<size_t, size_t>> correct_cells;
+        std::set<std::pair<size_t, size_t>> wrong_cells;
+        std::set<std::pair<size_t, size_t>> missed_cells;
 
-    // Check for partial correctness
-    size_t correct_count = 0;
-    for (const auto& p : player_set) {
-        if (expected_set.contains(p)) {
-            correct_count++;
+        for (const auto& [r, c, v] : player_set) {
+            if (expected_set.contains({r, c, v})) {
+                correct_cells.emplace(r, c);
+            } else {
+                wrong_cells.emplace(r, c);
+            }
+        }
+        for (const auto& [r, c, v] : expected_set) {
+            if (!player_set.contains({r, c, v})) {
+                missed_cells.emplace(r, c);
+            }
+        }
+
+        // Apply highlights (wrong takes priority over correct if both on same cell)
+        for (const auto& [r, c] : correct_cells) {
+            if (!wrong_cells.contains({r, c})) {
+                diff[r][c].highlight_role = CellRole::CorrectAnswer;
+                diff[r][c].player_selected = true;
+            }
+        }
+        for (const auto& [r, c] : wrong_cells) {
+            diff[r][c].highlight_role = CellRole::WrongAnswer;
+            diff[r][c].player_selected = true;
+        }
+        for (const auto& [r, c] : missed_cells) {
+            if (!correct_cells.contains({r, c}) && !wrong_cells.contains({r, c})) {
+                diff[r][c].highlight_role = CellRole::MissedAnswer;
+                diff[r][c].player_selected = true;
+            }
         }
     }
 
-    if (correct_count > 0 && correct_count < expected_set.size()) {
-        return AnswerResult::PartiallyCorrect;
-    }
-
-    return AnswerResult::Incorrect;
+    feedbackBoard.set(diff);
 }
 
-std::string TrainingViewModel::buildFeedback(AnswerResult result, const SolveStep& expected) {
-    switch (result) {
-        case AnswerResult::Correct:
-            return fmt::format("Correct! {}", expected.explanation);
-        case AnswerResult::PartiallyCorrect:
-            return fmt::format("Partially correct. {}", expected.explanation);
-        case AnswerResult::Incorrect:
-            return fmt::format("Not quite. {}", expected.explanation);
+void TrainingViewModel::recordLessonStats() {
+    if (!stats_manager_) {
+        return;
     }
-    return "Unknown result.";
+
+    const auto& state = trainingState.get();
+    TrainingLessonResult result;
+    result.technique = state.current_technique;
+    result.correct_count = state.correct_count;
+    result.total_exercises = state.total_exercises;
+    result.hints_used = state.hints_used;
+
+    auto record_result = stats_manager_->recordLesson(result);
+    if (!record_result) {
+        spdlog::warn("Failed to record training lesson stats");
+    }
 }
 
 }  // namespace sudoku::viewmodel

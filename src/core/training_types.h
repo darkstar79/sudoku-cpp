@@ -53,6 +53,7 @@ enum class AnswerResult : uint8_t {
 struct TrainingCellState {
     int value{0};                                ///< Placed value (0 = empty)
     bool is_given{false};                        ///< Part of the puzzle clue
+    bool is_found{false};                        ///< Correctly identified by player (locked, non-editable)
     std::vector<int> candidates;                 ///< Available candidates for this cell
     CellRole highlight_role{CellRole::Pattern};  ///< Visual role for coloring
     bool player_selected{false};                 ///< Player has selected/marked this cell
@@ -84,6 +85,7 @@ struct TrainingUIState {
     int hints_used{0};
     int current_hint_level{0};  ///< 0-3 (0 = no hint shown)
     std::string feedback_message;
+    std::string found_step_message;  ///< Brief message when a step is applied mid-exercise
     AnswerResult last_result{AnswerResult::Incorrect};
 
     bool operator==(const TrainingUIState& other) const = default;

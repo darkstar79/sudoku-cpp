@@ -1,0 +1,235 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#include "../../src/core/training_learning_path.h"
+#include "../../src/core/training_statistics_manager.h"
+
+#include <filesystem>
+
+#include <catch2/catch_test_macros.hpp>
+
+using namespace sudoku::core;
+
+namespace {
+
+std::filesystem::path createTempDir() {
+    auto tmp = std::filesystem::temp_directory_path() / "sudoku_test_learning_path";
+    std::filesystem::create_directories(tmp);
+    return tmp;
+}
+
+void cleanupTempDir(const std::filesystem::path& path) {
+    std::filesystem::remove_all(path);
+}
+
+void masterTechnique(TrainingStatisticsManager& mgr, SolvingTechnique technique) {
+    TrainingLessonResult result;
+    result.technique = technique;
+    result.correct_count = 5;
+    result.total_exercises = 5;
+    result.hints_used = 0;
+    REQUIRE(mgr.recordLesson(result).has_value());
+    REQUIRE(mgr.recordLesson(result).has_value());
+    REQUIRE(mgr.getMastery(technique) == MasteryLevel::Mastered);
+}
+
+void reachIntermediate(TrainingStatisticsManager& mgr, SolvingTechnique technique) {
+    TrainingLessonResult result;
+    result.technique = technique;
+    result.correct_count = 3;
+    result.total_exercises = 5;
+    result.hints_used = 10;
+    REQUIRE(mgr.recordLesson(result).has_value());
+    REQUIRE(mgr.getMastery(technique) == MasteryLevel::Intermediate);
+}
+
+}  // namespace
+
+TEST_CASE("getPrerequisites — techniques with no prerequisites", "[LearningPath]") {
+    CHECK(getPrerequisites(SolvingTechnique::NakedSingle).empty());
+    CHECK(getPrerequisites(SolvingTechnique::HiddenSingle).empty());
+    CHECK(getPrerequisites(SolvingTechnique::NakedPair).empty());
+    CHECK(getPrerequisites(SolvingTechnique::XWing).empty());
+    CHECK(getPrerequisites(SolvingTechnique::XYWing).empty());
+    CHECK(getPrerequisites(SolvingTechnique::SimpleColoring).empty());
+    CHECK(getPrerequisites(SolvingTechnique::UniqueRectangle).empty());
+    CHECK(getPrerequisites(SolvingTechnique::ALSxZ).empty());
+}
+
+TEST_CASE("getPrerequisites — subset chains", "[LearningPath]") {
+    auto np_prereqs = getPrerequisites(SolvingTechnique::NakedTriple);
+    REQUIRE(np_prereqs.size() == 1);
+    CHECK(np_prereqs[0].prerequisite == SolvingTechnique::NakedPair);
+
+    auto nq_prereqs = getPrerequisites(SolvingTechnique::NakedQuad);
+    REQUIRE(nq_prereqs.size() == 1);
+    CHECK(nq_prereqs[0].prerequisite == SolvingTechnique::NakedTriple);
+
+    auto ht_prereqs = getPrerequisites(SolvingTechnique::HiddenTriple);
+    REQUIRE(ht_prereqs.size() == 1);
+    CHECK(ht_prereqs[0].prerequisite == SolvingTechnique::HiddenPair);
+}
+
+TEST_CASE("getPrerequisites — fish chain", "[LearningPath]") {
+    auto sf_prereqs = getPrerequisites(SolvingTechnique::Swordfish);
+    REQUIRE(sf_prereqs.size() == 1);
+    CHECK(sf_prereqs[0].prerequisite == SolvingTechnique::XWing);
+
+    auto jf_prereqs = getPrerequisites(SolvingTechnique::Jellyfish);
+    REQUIRE(jf_prereqs.size() == 1);
+    CHECK(jf_prereqs[0].prerequisite == SolvingTechnique::Swordfish);
+
+    auto fsf_prereqs = getPrerequisites(SolvingTechnique::FinnedSwordfish);
+    REQUIRE(fsf_prereqs.size() == 2);
+}
+
+TEST_CASE("getPrerequisites — coloring chain", "[LearningPath]") {
+    auto mc_prereqs = getPrerequisites(SolvingTechnique::MultiColoring);
+    REQUIRE(mc_prereqs.size() == 1);
+    CHECK(mc_prereqs[0].prerequisite == SolvingTechnique::SimpleColoring);
+
+    auto med_prereqs = getPrerequisites(SolvingTechnique::ThreeDMedusa);
+    REQUIRE(med_prereqs.size() == 1);
+    CHECK(med_prereqs[0].prerequisite == SolvingTechnique::MultiColoring);
+}
+
+TEST_CASE("arePrerequisitesMet — fresh stats", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    SECTION("techniques with no prerequisites are always available") {
+        CHECK(arePrerequisitesMet(SolvingTechnique::NakedSingle, mgr));
+        CHECK(arePrerequisitesMet(SolvingTechnique::NakedPair, mgr));
+        CHECK(arePrerequisitesMet(SolvingTechnique::XWing, mgr));
+    }
+
+    SECTION("techniques with prerequisites are blocked when unpracticed") {
+        CHECK_FALSE(arePrerequisitesMet(SolvingTechnique::NakedTriple, mgr));
+        CHECK_FALSE(arePrerequisitesMet(SolvingTechnique::Swordfish, mgr));
+        CHECK_FALSE(arePrerequisitesMet(SolvingTechnique::MultiColoring, mgr));
+    }
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("arePrerequisitesMet — unlocks after reaching Intermediate", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    reachIntermediate(mgr, SolvingTechnique::NakedPair);
+    CHECK(arePrerequisitesMet(SolvingTechnique::NakedTriple, mgr));
+
+    // NakedQuad still blocked (needs NakedTriple)
+    CHECK_FALSE(arePrerequisitesMet(SolvingTechnique::NakedQuad, mgr));
+
+    reachIntermediate(mgr, SolvingTechnique::NakedTriple);
+    CHECK(arePrerequisitesMet(SolvingTechnique::NakedQuad, mgr));
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("getRecommendedTechnique — fresh stats recommends NakedSingle", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    auto recommended = getRecommendedTechnique(mgr);
+    REQUIRE(recommended.has_value());
+    CHECK(*recommended == SolvingTechnique::NakedSingle);
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("getRecommendedTechnique — advances after mastering", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    masterTechnique(mgr, SolvingTechnique::NakedSingle);
+
+    auto recommended = getRecommendedTechnique(mgr);
+    REQUIRE(recommended.has_value());
+    CHECK(*recommended == SolvingTechnique::HiddenSingle);
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("getRecommendedTechnique — skips techniques with unmet prerequisites", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    // Master NakedSingle and HiddenSingle
+    masterTechnique(mgr, SolvingTechnique::NakedSingle);
+    masterTechnique(mgr, SolvingTechnique::HiddenSingle);
+
+    // Next should be NakedPair (50 pts), not NakedTriple (60 pts, needs NakedPair)
+    auto recommended = getRecommendedTechnique(mgr);
+    REQUIRE(recommended.has_value());
+    CHECK(*recommended == SolvingTechnique::NakedPair);
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("getRecommendedTechnique — prefers least recently practiced at same difficulty", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    // Practice both PointingPair and BoxLineReduction (both 100 pts, no prereqs blocked)
+    // Master lower-difficulty techniques first
+    masterTechnique(mgr, SolvingTechnique::NakedSingle);
+    masterTechnique(mgr, SolvingTechnique::HiddenSingle);
+    masterTechnique(mgr, SolvingTechnique::NakedPair);
+    masterTechnique(mgr, SolvingTechnique::NakedTriple);
+    masterTechnique(mgr, SolvingTechnique::HiddenPair);
+    masterTechnique(mgr, SolvingTechnique::HiddenTriple);
+
+    // Now both PointingPair and BoxLineReduction are at 100 pts
+    // Practice PointingPair (making it more recently practiced)
+    TrainingLessonResult result;
+    result.technique = SolvingTechnique::PointingPair;
+    result.correct_count = 2;
+    result.total_exercises = 5;
+    result.hints_used = 5;
+    REQUIRE(mgr.recordLesson(result).has_value());
+
+    auto recommended = getRecommendedTechnique(mgr);
+    REQUIRE(recommended.has_value());
+    // BoxLineReduction should be recommended (less recently practiced)
+    CHECK(*recommended == SolvingTechnique::BoxLineReduction);
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("getRecommendedTechnique — returns nullopt when all mastered", "[LearningPath]") {
+    auto tmp = createTempDir();
+    TrainingStatisticsManager mgr(tmp);
+
+    for (auto tech : kAllTechniques) {
+        masterTechnique(mgr, tech);
+    }
+
+    auto recommended = getRecommendedTechnique(mgr);
+    CHECK_FALSE(recommended.has_value());
+
+    cleanupTempDir(tmp);
+}
+
+TEST_CASE("kAllTechniques — contains all logical techniques", "[LearningPath]") {
+    CHECK(kAllTechniques.size() == 42);
+
+    // Verify Backtracking is excluded
+    for (auto tech : kAllTechniques) {
+        CHECK(tech != SolvingTechnique::Backtracking);
+    }
+}

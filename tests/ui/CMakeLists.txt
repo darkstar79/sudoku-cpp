@@ -6,6 +6,7 @@ set(UI_TEST_SOURCES
     test_keyboard_handling.cpp
     test_menu_toolbar_actions.cpp
     test_view_model_binding.cpp
+    test_training_widget.cpp
 )
 
 foreach(TEST_SOURCE ${UI_TEST_SOURCES})

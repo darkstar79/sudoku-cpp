@@ -14,8 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include "../../src/core/candidate_grid.h"
 #include "../../src/core/i_localization_manager.h"
 #include "../../src/core/i_training_exercise_generator.h"
+#include "../../src/core/i_training_statistics_manager.h"
 #include "../../src/view_model/training_view_model.h"
 
 #include <catch2/catch_test_macros.hpp>
@@ -114,6 +116,36 @@ struct VMFixture {
     std::shared_ptr<MockExerciseGenerator> mock_gen = std::make_shared<MockExerciseGenerator>();
     std::shared_ptr<MockLocManager> mock_loc = std::make_shared<MockLocManager>();
     TrainingViewModel vm{mock_gen, mock_loc};
+};
+
+/// Mock stats manager for verifying recordLesson calls
+class MockStatsManager : public ITrainingStatisticsManager {
+public:
+    mutable std::vector<TrainingLessonResult> recorded_lessons;
+    bool should_fail{false};
+
+    [[nodiscard]] std::expected<void, TrainingStatsError> recordLesson(const TrainingLessonResult& result) override {
+        recorded_lessons.push_back(result);
+        if (should_fail) {
+            return std::unexpected(TrainingStatsError::FileAccessError);
+        }
+        return {};
+    }
+
+    [[nodiscard]] TechniqueStats getStats(SolvingTechnique /*technique*/) const override {
+        return {};
+    }
+
+    [[nodiscard]] std::unordered_map<SolvingTechnique, TechniqueStats> getAllStats() const override {
+        return {};
+    }
+
+    [[nodiscard]] MasteryLevel getMastery(SolvingTechnique /*technique*/) const override {
+        return MasteryLevel::Beginner;
+    }
+
+    void resetAllStats() override {
+    }
 };
 
 }  // namespace
@@ -484,5 +516,537 @@ TEST_CASE("TrainingViewModel - Score tracking", "[training_view_model]") {
         f.vm.submitAnswer(board);
 
         REQUIRE(f.vm.trainingState.get().correct_count == 0);
+    }
+}
+
+// --- Elimination evaluation ---
+
+TEST_CASE("TrainingViewModel - submitAnswer elimination mode", "[training_view_model]") {
+    VMFixture f;
+    // Use NakedPair (triggers elimination mode in mock generator)
+    f.vm.selectTechnique(SolvingTechnique::NakedPair);
+    f.vm.startExercises();
+
+    SECTION("Correct elimination gives Correct") {
+        auto board = f.vm.trainingBoard.get();
+        // Expected elimination: remove candidate 1 from cell (0,2)
+        // Cell (0,2) has candidates {1, 7}. Remove 1, keep 7.
+        board[0][2].player_selected = true;
+        board[0][2].candidates = {7};  // Removed 1
+
+        f.vm.submitAnswer(board);
+
+        REQUIRE(f.vm.trainingState.get().phase == TrainingPhase::Feedback);
+        REQUIRE(f.vm.trainingState.get().last_result == AnswerResult::Correct);
+    }
+
+    SECTION("No eliminations gives Incorrect") {
+        auto board = f.vm.trainingBoard.get();
+        // Don't mark any cells
+        f.vm.submitAnswer(board);
+
+        REQUIRE(f.vm.trainingState.get().last_result == AnswerResult::Incorrect);
+    }
+
+    SECTION("Wrong elimination gives Incorrect") {
+        auto board = f.vm.trainingBoard.get();
+        // Remove wrong candidate (7 instead of 1) from cell (0,2)
+        board[0][2].player_selected = true;
+        board[0][2].candidates = {1};  // Removed 7 (wrong)
+
+        f.vm.submitAnswer(board);
+
+        REQUIRE(f.vm.trainingState.get().last_result == AnswerResult::Incorrect);
+    }
+}
+
+// --- submitAnswer guard paths ---
+
+TEST_CASE("TrainingViewModel - submitAnswer guards", "[training_view_model]") {
+    VMFixture f;
+
+    SECTION("Does nothing outside Exercise phase") {
+        // Still in TechniqueSelection
+        TrainingBoard board{};
+        f.vm.submitAnswer(board);
+        REQUIRE(f.vm.trainingState.get().phase == TrainingPhase::TechniqueSelection);
+    }
+}
+
+// --- revealSolution ---
+
+TEST_CASE("TrainingViewModel - revealSolution", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    SECTION("Applies hint highlights to feedback board") {
+        // Submit correct answer to get to Feedback
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        f.vm.submitAnswer(board);
+        REQUIRE(f.vm.trainingState.get().phase == TrainingPhase::Feedback);
+
+        f.vm.revealSolution();
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        // Level 3 hint for Singles reveals the value and highlights cell (1,0)
+        CHECK(fb[1][0].player_selected == true);
+    }
+
+    SECTION("Does nothing outside Feedback phase") {
+        // Still in Exercise phase
+        f.vm.revealSolution();
+        // Should not crash or change state
+        REQUIRE(f.vm.trainingState.get().phase == TrainingPhase::Exercise);
+    }
+}
+
+// --- buildDiffBoard ---
+
+TEST_CASE("TrainingViewModel - diff board placement mode", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    SECTION("Correct placement shows CorrectAnswer") {
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        board[1][0].player_selected = true;
+        f.vm.submitAnswer(board);
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        CHECK(fb[1][0].highlight_role == CellRole::CorrectAnswer);
+    }
+
+    SECTION("Wrong value at expected cell shows MissedAnswer (overwrite)") {
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 5;
+        board[1][0].player_selected = true;
+        f.vm.submitAnswer(board);
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        // The final pass sets MissedAnswer since highlight != CorrectAnswer
+        CHECK(fb[1][0].highlight_role == CellRole::MissedAnswer);
+    }
+
+    SECTION("No placement at expected cell shows MissedAnswer") {
+        auto board = f.vm.trainingBoard.get();
+        // Player placed nothing at expected cell, but placed elsewhere
+        board[2][2].value = 3;
+        board[2][2].player_selected = true;
+        f.vm.submitAnswer(board);
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        CHECK(fb[1][0].highlight_role == CellRole::MissedAnswer);
+        CHECK(fb[2][2].highlight_role == CellRole::WrongAnswer);
+    }
+}
+
+TEST_CASE("TrainingViewModel - diff board elimination mode", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedPair);
+    f.vm.startExercises();
+
+    SECTION("Correct elimination shows CorrectAnswer") {
+        auto board = f.vm.trainingBoard.get();
+        board[0][2].player_selected = true;
+        board[0][2].candidates = {7};  // Removed 1 (correct)
+        f.vm.submitAnswer(board);
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        CHECK(fb[0][2].highlight_role == CellRole::CorrectAnswer);
+    }
+
+    SECTION("Wrong elimination shows WrongAnswer") {
+        auto board = f.vm.trainingBoard.get();
+        board[0][2].player_selected = true;
+        board[0][2].candidates = {1};  // Removed 7 (wrong)
+        f.vm.submitAnswer(board);
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        CHECK(fb[0][2].highlight_role == CellRole::WrongAnswer);
+    }
+
+    SECTION("Missed elimination shows MissedAnswer") {
+        auto board = f.vm.trainingBoard.get();
+        // Don't touch cell (0,2) at all
+        f.vm.submitAnswer(board);
+
+        const auto& fb = f.vm.feedbackBoard.get();
+        CHECK(fb[0][2].highlight_role == CellRole::MissedAnswer);
+    }
+}
+
+// --- skipExercise to LessonComplete ---
+
+TEST_CASE("TrainingViewModel - skipExercise to LessonComplete", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    // Skip all 5 exercises
+    for (int i = 0; i < 5; ++i) {
+        f.vm.skipExercise();
+    }
+
+    REQUIRE(f.vm.trainingState.get().phase == TrainingPhase::LessonComplete);
+    CHECK(f.vm.trainingState.get().correct_count == 0);
+}
+
+// --- recordLessonStats with mock ---
+
+TEST_CASE("TrainingViewModel - records stats on lesson complete", "[training_view_model]") {
+    auto mock_gen = std::make_shared<MockExerciseGenerator>();
+    auto mock_loc = std::make_shared<MockLocManager>();
+    auto mock_stats = std::make_shared<MockStatsManager>();
+    TrainingViewModel vm{mock_gen, mock_loc, mock_stats};
+
+    vm.selectTechnique(SolvingTechnique::NakedSingle);
+    vm.startExercises();
+
+    // Complete all exercises with correct answers
+    for (int i = 0; i < 5; ++i) {
+        auto board = vm.trainingBoard.get();
+        board[1][0].value = 9;
+        vm.submitAnswer(board);
+        if (i < 4) {
+            vm.nextExercise();
+        }
+    }
+    vm.nextExercise();
+
+    REQUIRE(vm.trainingState.get().phase == TrainingPhase::LessonComplete);
+    REQUIRE(mock_stats->recorded_lessons.size() == 1);
+
+    const auto& recorded = mock_stats->recorded_lessons[0];
+    CHECK(recorded.technique == SolvingTechnique::NakedSingle);
+    CHECK(recorded.correct_count == 5);
+    CHECK(recorded.total_exercises == 5);
+}
+
+TEST_CASE("TrainingViewModel - records stats on skip to complete", "[training_view_model]") {
+    auto mock_gen = std::make_shared<MockExerciseGenerator>();
+    auto mock_loc = std::make_shared<MockLocManager>();
+    auto mock_stats = std::make_shared<MockStatsManager>();
+    TrainingViewModel vm{mock_gen, mock_loc, mock_stats};
+
+    vm.selectTechnique(SolvingTechnique::NakedSingle);
+    vm.startExercises();
+
+    for (int i = 0; i < 5; ++i) {
+        vm.skipExercise();
+    }
+
+    REQUIRE(mock_stats->recorded_lessons.size() == 1);
+    CHECK(mock_stats->recorded_lessons[0].correct_count == 0);
+}
+
+TEST_CASE("TrainingViewModel - stats recording failure does not crash", "[training_view_model]") {
+    auto mock_gen = std::make_shared<MockExerciseGenerator>();
+    auto mock_loc = std::make_shared<MockLocManager>();
+    auto mock_stats = std::make_shared<MockStatsManager>();
+    mock_stats->should_fail = true;
+    TrainingViewModel vm{mock_gen, mock_loc, mock_stats};
+
+    vm.selectTechnique(SolvingTechnique::NakedSingle);
+    vm.startExercises();
+
+    for (int i = 0; i < 5; ++i) {
+        vm.skipExercise();
+    }
+
+    // Should reach LessonComplete despite stats failure
+    REQUIRE(vm.trainingState.get().phase == TrainingPhase::LessonComplete);
+}
+
+// --- Undo/Redo ---
+
+TEST_CASE("TrainingViewModel - undo/redo basics", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    // Initial board loaded — history has one snapshot (index 0)
+    CHECK_FALSE(f.vm.canUndo());
+    CHECK_FALSE(f.vm.canRedo());
+
+    SECTION("recordBoardChange pushes snapshot") {
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        f.vm.recordBoardChange(board);
+
+        CHECK(f.vm.canUndo());
+        CHECK_FALSE(f.vm.canRedo());
+        CHECK(f.vm.trainingBoard.get()[1][0].value == 9);
+    }
+
+    SECTION("undo restores previous state") {
+        auto board = f.vm.trainingBoard.get();
+        auto original_board = board;
+        board[1][0].value = 9;
+        f.vm.recordBoardChange(board);
+
+        f.vm.undo();
+
+        CHECK(f.vm.trainingBoard.get()[1][0].value == original_board[1][0].value);
+        CHECK_FALSE(f.vm.canUndo());
+        CHECK(f.vm.canRedo());
+    }
+
+    SECTION("redo re-applies undone change") {
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        f.vm.recordBoardChange(board);
+
+        f.vm.undo();
+        f.vm.redo();
+
+        CHECK(f.vm.trainingBoard.get()[1][0].value == 9);
+        CHECK(f.vm.canUndo());
+        CHECK_FALSE(f.vm.canRedo());
+    }
+
+    SECTION("undo at initial state is no-op") {
+        auto board_before = f.vm.trainingBoard.get();
+        f.vm.undo();
+        CHECK(f.vm.trainingBoard.get() == board_before);
+    }
+
+    SECTION("redo at latest state is no-op") {
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        f.vm.recordBoardChange(board);
+
+        f.vm.redo();  // Already at latest
+        CHECK(f.vm.trainingBoard.get()[1][0].value == 9);
+    }
+
+    SECTION("new change after undo truncates redo history") {
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        f.vm.recordBoardChange(board);
+
+        board[1][0].value = 5;
+        f.vm.recordBoardChange(board);
+
+        f.vm.undo();  // Back to value=9
+        CHECK(f.vm.canRedo());
+
+        // New change should truncate the redo (value=5 is gone)
+        auto board2 = f.vm.trainingBoard.get();
+        board2[1][0].value = 3;
+        f.vm.recordBoardChange(board2);
+
+        CHECK_FALSE(f.vm.canRedo());
+        CHECK(f.vm.trainingBoard.get()[1][0].value == 3);
+    }
+
+    SECTION("undo resets hint level") {
+        f.vm.requestHint();
+        CHECK(f.vm.trainingState.get().current_hint_level == 1);
+
+        auto board = f.vm.trainingBoard.get();
+        board[1][0].value = 9;
+        f.vm.recordBoardChange(board);
+
+        f.vm.undo();
+        CHECK(f.vm.trainingState.get().current_hint_level == 0);
+    }
+}
+
+TEST_CASE("TrainingViewModel - undo history cleared on retry", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    auto board = f.vm.trainingBoard.get();
+    board[1][0].value = 9;
+    f.vm.recordBoardChange(board);
+    CHECK(f.vm.canUndo());
+
+    f.vm.retryExercise();
+
+    CHECK_FALSE(f.vm.canUndo());
+    CHECK_FALSE(f.vm.canRedo());
+}
+
+TEST_CASE("TrainingViewModel - undo history cleared on next exercise", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    auto board = f.vm.trainingBoard.get();
+    board[1][0].value = 9;
+    f.vm.recordBoardChange(board);
+
+    // Submit and move to next
+    f.vm.submitAnswer(board);
+    f.vm.nextExercise();
+
+    CHECK_FALSE(f.vm.canUndo());
+    CHECK_FALSE(f.vm.canRedo());
+}
+
+TEST_CASE("TrainingViewModel - undo history capped at max", "[training_view_model]") {
+    VMFixture f;
+    f.vm.selectTechnique(SolvingTechnique::NakedSingle);
+    f.vm.startExercises();
+
+    // Push more than kMaxUndoHistory snapshots
+    for (int i = 0; i < 55; ++i) {
+        auto board = f.vm.trainingBoard.get();
+        board[0][2].player_color = i;  // Use player_color as a distinguishing marker
+        f.vm.recordBoardChange(board);
+    }
+
+    // Should still be able to undo, but not all the way back to the very first
+    CHECK(f.vm.canUndo());
+
+    // Count how many undos are possible
+    int undo_count = 0;
+    while (f.vm.canUndo()) {
+        f.vm.undo();
+        ++undo_count;
+    }
+
+    // History is capped at 50, so max undos = 49 (from index 49 back to 0)
+    CHECK(undo_count <= 50);
+}
+
+// --- Continue-on-correct flow ---
+
+namespace {
+
+/// Mock that generates exercises with a real board containing multiple naked singles.
+/// Board has 3 naked singles: (0,2)=4, (7,8)=5, (8,8)=9
+class MultiStepMockGenerator : public ITrainingExerciseGenerator {
+public:
+    [[nodiscard]] std::expected<std::vector<TrainingExercise>, std::string>
+    generateExercises(SolvingTechnique technique, int count) const override {
+        // Real board with 3 naked singles
+        std::vector<std::vector<int>> board = {
+            {5, 3, 0, 6, 7, 8, 9, 1, 2}, {6, 7, 2, 1, 9, 5, 3, 4, 8}, {1, 9, 8, 3, 4, 2, 5, 6, 7},
+            {8, 5, 9, 7, 6, 1, 4, 2, 3}, {4, 2, 6, 8, 5, 3, 7, 9, 1}, {7, 1, 3, 9, 2, 4, 8, 5, 6},
+            {9, 6, 1, 5, 3, 7, 2, 8, 4}, {2, 8, 7, 4, 1, 9, 6, 3, 0}, {3, 4, 5, 2, 8, 6, 1, 7, 0},
+        };
+
+        CandidateGrid candidates(board);
+        std::vector<uint16_t> masks(81);
+        for (size_t r = 0; r < 9; ++r) {
+            for (size_t c = 0; c < 9; ++c) {
+                masks[(r * 9) + c] = (board[r][c] != 0) ? uint16_t{0} : candidates.getPossibleValuesMask(r, c);
+            }
+        }
+
+        std::vector<TrainingExercise> exercises;
+        for (int i = 0; i < count; ++i) {
+            TrainingExercise ex;
+            ex.board = board;
+            ex.candidate_masks = masks;
+            ex.expected_step = SolveStep{
+                .type = SolveStepType::Placement,
+                .technique = technique,
+                .position = Position{.row = 0, .col = 2},
+                .value = 4,
+                .eliminations = {},
+                .explanation = "Naked Single at R1C3: only value 4 is possible",
+                .points = getTechniquePoints(technique),
+                .explanation_data = {.positions = {Position{.row = 0, .col = 2}}, .values = {4}},
+            };
+            ex.technique = technique;
+            ex.interaction_mode = TrainingInteractionMode::Placement;
+            exercises.push_back(std::move(ex));
+        }
+        return exercises;
+    }
+};
+
+}  // namespace
+
+TEST_CASE("TrainingViewModel - continue on correct with multiple steps", "[training_view_model]") {
+    auto mock_gen = std::make_shared<MultiStepMockGenerator>();
+    auto mock_loc = std::make_shared<MockLocManager>();
+    TrainingViewModel vm{mock_gen, mock_loc};
+
+    vm.selectTechnique(SolvingTechnique::NakedSingle);
+    vm.startExercises();
+
+    SECTION("First correct answer stays in Exercise phase") {
+        auto board = vm.trainingBoard.get();
+        // Place value 4 at (0,2) — first naked single
+        board[0][2].value = 4;
+        vm.submitAnswer(board);
+
+        // Should stay in Exercise (more naked singles remain)
+        REQUIRE(vm.trainingState.get().phase == TrainingPhase::Exercise);
+        REQUIRE(vm.trainingState.get().correct_count == 1);
+        REQUIRE_FALSE(vm.trainingState.get().found_step_message.empty());
+
+        // Cell (0,2) should be marked as found on the board
+        const auto& updated = vm.trainingBoard.get();
+        CHECK(updated[0][2].is_found);
+        CHECK(updated[0][2].value == 4);
+        CHECK(updated[0][2].highlight_role == CellRole::CorrectAnswer);
+    }
+
+    SECTION("Second correct answer also stays in Exercise") {
+        auto board = vm.trainingBoard.get();
+        board[0][2].value = 4;
+        vm.submitAnswer(board);
+
+        // Now find second one: (7,8)=5
+        auto board2 = vm.trainingBoard.get();
+        board2[7][8].value = 5;
+        vm.submitAnswer(board2);
+
+        // Should still stay in Exercise (one more naked single at (8,8))
+        REQUIRE(vm.trainingState.get().phase == TrainingPhase::Exercise);
+        REQUIRE(vm.trainingState.get().correct_count == 2);
+
+        // Both found cells should be locked
+        const auto& updated = vm.trainingBoard.get();
+        CHECK(updated[0][2].is_found);
+        CHECK(updated[7][8].is_found);
+    }
+
+    SECTION("Last correct answer transitions to Feedback") {
+        // Find all 3 naked singles
+        auto board = vm.trainingBoard.get();
+        board[0][2].value = 4;
+        vm.submitAnswer(board);
+
+        auto board2 = vm.trainingBoard.get();
+        board2[7][8].value = 5;
+        vm.submitAnswer(board2);
+
+        auto board3 = vm.trainingBoard.get();
+        board3[8][8].value = 9;
+        vm.submitAnswer(board3);
+
+        // No more steps — should transition to Feedback
+        REQUIRE(vm.trainingState.get().phase == TrainingPhase::Feedback);
+        REQUIRE(vm.trainingState.get().correct_count == 3);
+        REQUIRE(vm.trainingState.get().last_result == AnswerResult::Correct);
+    }
+
+    SECTION("Wrong answer during multi-step goes to Feedback") {
+        auto board = vm.trainingBoard.get();
+        board[0][2].value = 7;  // Wrong value
+        vm.submitAnswer(board);
+
+        REQUIRE(vm.trainingState.get().phase == TrainingPhase::Feedback);
+        REQUIRE(vm.trainingState.get().last_result == AnswerResult::Incorrect);
+    }
+
+    SECTION("Can find steps in any order") {
+        // Start with (8,8)=9 instead of (0,2)=4
+        auto board = vm.trainingBoard.get();
+        board[8][8].value = 9;
+        vm.submitAnswer(board);
+
+        REQUIRE(vm.trainingState.get().phase == TrainingPhase::Exercise);
+        REQUIRE(vm.trainingState.get().correct_count == 1);
+        CHECK(vm.trainingBoard.get()[8][8].is_found);
     }
 }

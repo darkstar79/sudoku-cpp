@@ -1,0 +1,228 @@
+// sudoku-cpp - Offline Sudoku Game
+// Copyright (C) 2025-2026 Alexander Bendlin (darkstar79)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+#pragma once
+
+#include "i_training_statistics_manager.h"
+#include "solving_technique.h"
+
+#include <algorithm>
+#include <array>
+#include <optional>
+#include <span>
+#include <unordered_map>
+#include <vector>
+
+namespace sudoku::core {
+
+/// Prerequisite relationship: technique requires prerequisite to reach min_level
+struct TechniquePrerequisite {
+    SolvingTechnique prerequisite;
+    MasteryLevel min_level{MasteryLevel::Intermediate};
+};
+
+/// Returns the prerequisites for a given technique.
+/// Prerequisites are based on natural skill progressions:
+///   Naked Pair → Naked Triple → Naked Quad
+///   Hidden Pair → Hidden Triple → Hidden Quad
+///   X-Wing → Swordfish → Jellyfish (+ finned variants)
+///   Simple Coloring → Multi-Coloring → 3D Medusa
+///   XY-Wing → XYZ-Wing → WXYZ-Wing → VWXYZ-Wing
+///   ALS-XZ → ALS-XY-Wing, Death Blossom, Sue de Coq
+[[nodiscard]] inline std::vector<TechniquePrerequisite> getPrerequisites(SolvingTechnique technique) {
+    using enum SolvingTechnique;
+    switch (technique) {
+        // Subset chains
+        case NakedTriple:
+            return {{NakedPair}};
+        case NakedQuad:
+            return {{NakedTriple}};
+        case HiddenTriple:
+            return {{HiddenPair}};
+        case HiddenQuad:
+            return {{HiddenTriple}};
+
+        // Intersections build on singles
+        case PointingPair:
+            return {{HiddenSingle}};
+        case BoxLineReduction:
+            return {{HiddenSingle}};
+
+        // Fish chain
+        case Swordfish:
+            return {{XWing}};
+        case Jellyfish:
+            return {{Swordfish}};
+        case FinnedXWing:
+            return {{XWing}};
+        case FinnedSwordfish:
+            return {{Swordfish}, {FinnedXWing}};
+        case FinnedJellyfish:
+            return {{Jellyfish}, {FinnedSwordfish}};
+        case FrankenFish:
+            return {{XWing}};
+
+        // Wing chain
+        case XYZWing:
+            return {{XYWing}};
+        case WXYZWing:
+            return {{XYZWing}};
+        case VWXYZWing:
+            return {{WXYZWing}};
+        case WWing:
+            return {{XYWing}};
+
+        // Coloring chain
+        case MultiColoring:
+            return {{SimpleColoring}};
+        case ThreeDMedusa:
+            return {{MultiColoring}};
+
+        // Chain techniques
+        case XYChain:
+            return {{XYWing}};
+        case XCycles:
+            return {{SimpleColoring}};
+        case GroupedXCycles:
+            return {{XCycles}};
+        case ForcingChain:
+            return {{XYChain}};
+        case NiceLoop:
+            return {{ForcingChain}};
+
+        // Unique rectangles
+        case HiddenUniqueRectangle:
+            return {{UniqueRectangle}};
+        case AvoidableRectangle:
+            return {{UniqueRectangle}};
+
+        // ALS family
+        case ALSXYWing:
+            return {{ALSxZ}};
+        case DeathBlossom:
+            return {{ALSxZ}};
+        case SueDeCoq:
+            return {{ALSxZ}};
+
+        // Remote Pairs builds on naked pairs
+        case RemotePairs:
+            return {{NakedPair}};
+
+        default:
+            return {};
+    }
+}
+
+/// All logical techniques in difficulty order (excludes Backtracking)
+inline constexpr std::array kAllTechniques = {
+    SolvingTechnique::NakedSingle,
+    SolvingTechnique::HiddenSingle,
+    SolvingTechnique::NakedPair,
+    SolvingTechnique::NakedTriple,
+    SolvingTechnique::HiddenPair,
+    SolvingTechnique::HiddenTriple,
+    SolvingTechnique::PointingPair,
+    SolvingTechnique::BoxLineReduction,
+    SolvingTechnique::NakedQuad,
+    SolvingTechnique::HiddenQuad,
+    SolvingTechnique::XWing,
+    SolvingTechnique::XYWing,
+    SolvingTechnique::Swordfish,
+    SolvingTechnique::Skyscraper,
+    SolvingTechnique::TwoStringKite,
+    SolvingTechnique::XYZWing,
+    SolvingTechnique::UniqueRectangle,
+    SolvingTechnique::WWing,
+    SolvingTechnique::SimpleColoring,
+    SolvingTechnique::FinnedXWing,
+    SolvingTechnique::RemotePairs,
+    SolvingTechnique::BUG,
+    SolvingTechnique::XCycles,
+    SolvingTechnique::HiddenUniqueRectangle,
+    SolvingTechnique::AvoidableRectangle,
+    SolvingTechnique::Jellyfish,
+    SolvingTechnique::FinnedSwordfish,
+    SolvingTechnique::EmptyRectangle,
+    SolvingTechnique::WXYZWing,
+    SolvingTechnique::MultiColoring,
+    SolvingTechnique::ThreeDMedusa,
+    SolvingTechnique::FinnedJellyfish,
+    SolvingTechnique::XYChain,
+    SolvingTechnique::VWXYZWing,
+    SolvingTechnique::FrankenFish,
+    SolvingTechnique::GroupedXCycles,
+    SolvingTechnique::ALSxZ,
+    SolvingTechnique::SueDeCoq,
+    SolvingTechnique::ALSXYWing,
+    SolvingTechnique::DeathBlossom,
+    SolvingTechnique::ForcingChain,
+    SolvingTechnique::NiceLoop,
+};
+
+/// Check whether all prerequisites for a technique are met at the required mastery level
+[[nodiscard]] inline bool arePrerequisitesMet(SolvingTechnique technique, const ITrainingStatisticsManager& stats_mgr) {
+    auto prereqs = getPrerequisites(technique);
+    return std::ranges::all_of(prereqs, [&stats_mgr](const TechniquePrerequisite& p) {
+        return stats_mgr.getMastery(p.prerequisite) >= p.min_level;
+    });
+}
+
+/// Recommend the next technique to practice.
+///
+/// Algorithm:
+/// 1. Find the lowest-difficulty technique not yet Mastered
+/// 2. Among techniques at the same difficulty, prefer the least recently practiced
+/// 3. Skip techniques whose prerequisites are not met
+/// 4. Returns nullopt if all techniques are Mastered
+[[nodiscard]] inline std::optional<SolvingTechnique>
+getRecommendedTechnique(const ITrainingStatisticsManager& stats_mgr) {
+    // Sort techniques by difficulty points, then by enum order for stability
+    struct TechCandidate {
+        SolvingTechnique technique;
+        int points;
+        std::chrono::system_clock::time_point last_practiced;
+    };
+
+    std::vector<TechCandidate> candidates;
+    candidates.reserve(kAllTechniques.size());
+
+    for (auto tech : kAllTechniques) {
+        if (stats_mgr.getMastery(tech) == MasteryLevel::Mastered) {
+            continue;
+        }
+        if (!arePrerequisitesMet(tech, stats_mgr)) {
+            continue;
+        }
+        auto stats = stats_mgr.getStats(tech);
+        candidates.push_back({tech, getTechniquePoints(tech), stats.last_practiced});
+    }
+
+    if (candidates.empty()) {
+        return std::nullopt;
+    }
+
+    // Sort by: lowest difficulty first, then least recently practiced
+    std::ranges::sort(candidates, [](const TechCandidate& a, const TechCandidate& b) {
+        if (a.points != b.points) {
+            return a.points < b.points;
+        }
+        return a.last_practiced < b.last_practiced;
+    });
+
+    return candidates.front().technique;
+}
+
+}  // namespace sudoku::core

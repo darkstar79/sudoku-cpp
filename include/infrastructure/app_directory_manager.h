@@ -31,9 +31,10 @@ namespace sudoku::infrastructure {
  * Eliminates 100% code duplication between SaveManager and StatisticsManager.
  */
 enum class DirectoryType {
-    Saves,       ///< Game save files
-    Statistics,  ///< Statistics and progress tracking
-    Logs         ///< Application logs (future use)
+    Saves,               ///< Game save files
+    Statistics,          ///< Statistics and progress tracking
+    TrainingStatistics,  ///< Training mode progress tracking
+    Logs                 ///< Application logs (future use)
 };
 
 class AppDirectoryManager {

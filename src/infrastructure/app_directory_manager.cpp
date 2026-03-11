@@ -53,6 +53,8 @@ std::string_view AppDirectoryManager::getSubdirectoryName(DirectoryType type) {
             return "saves"sv;
         case DirectoryType::Statistics:
             return "stats"sv;
+        case DirectoryType::TrainingStatistics:
+            return "training"sv;
         case DirectoryType::Logs:
             return "logs"sv;
         default:

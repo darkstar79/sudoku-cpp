@@ -25,6 +25,7 @@
 #include "core/i_sudoku_solver.h"
 #include "core/i_time_provider.h"
 #include "core/i_training_exercise_generator.h"
+#include "core/i_training_statistics_manager.h"
 #include "core/localization_manager.h"
 #include "core/puzzle_generator.h"
 #include "core/puzzle_rater.h"
@@ -32,6 +33,7 @@
 #include "core/statistics_manager.h"
 #include "core/sudoku_solver.h"
 #include "core/training_exercise_generator.h"
+#include "core/training_statistics_manager.h"
 #include "view/main_window.h"
 #include "view_model/game_view_model.h"
 #include "view_model/training_view_model.h"
@@ -96,6 +98,9 @@ void setupDependencies() {
         return manager;
     });
 
+    container.registerSingleton<sudoku::core::ITrainingStatisticsManager>(
+        []() { return std::make_unique<sudoku::core::TrainingStatisticsManager>(); });
+
     container.registerSingleton<sudoku::core::ITrainingExerciseGenerator>([&container]() {
         auto generator = container.resolve<sudoku::core::IPuzzleGenerator>();
         auto solver = container.resolve<sudoku::core::ISudokuSolver>();
@@ -145,7 +150,9 @@ int main(int argc, char* argv[]) {
     auto& container = sudoku::core::getContainer();
     auto loc_manager = container.resolve<sudoku::core::ILocalizationManager>();
     auto exercise_gen = container.resolve<sudoku::core::ITrainingExerciseGenerator>();
-    auto training_vm = std::make_shared<sudoku::viewmodel::TrainingViewModel>(exercise_gen, loc_manager);
+    auto training_stats = container.resolve<sudoku::core::ITrainingStatisticsManager>();
+    auto training_vm =
+        std::make_shared<sudoku::viewmodel::TrainingViewModel>(exercise_gen, loc_manager, training_stats);
 
     sudoku::view::MainWindow main_window;
     main_window.setViewModel(view_model);

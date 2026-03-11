@@ -42,18 +42,21 @@ struct Elimination {
 /// Role of a cell in a solving technique's visual explanation.
 /// Used by Training Mode to color-code cells on the board.
 enum class CellRole : uint8_t {
-    Pattern,       ///< General pattern cell (default)
-    Pivot,         ///< Pivot cell in wing techniques (XY-Wing, XYZ-Wing, etc.)
-    Wing,          ///< Wing cell in wing techniques
-    Fin,           ///< Fin cell in finned fish techniques
-    Roof,          ///< Roof cell in Unique Rectangle
-    Floor,         ///< Floor cell in Unique Rectangle
-    ChainA,        ///< Chain color A (coloring, remote pairs, XY-chain)
-    ChainB,        ///< Chain color B
-    LinkEndpoint,  ///< Endpoint of a strong/weak link
-    SetA,          ///< Set A in ALS-XZ or Sue de Coq
-    SetB,          ///< Set B in ALS-XZ or Sue de Coq
-    SetC           ///< Set C in ALS-XY-Wing or Death Blossom
+    Pattern,        ///< General pattern cell (default)
+    Pivot,          ///< Pivot cell in wing techniques (XY-Wing, XYZ-Wing, etc.)
+    Wing,           ///< Wing cell in wing techniques
+    Fin,            ///< Fin cell in finned fish techniques
+    Roof,           ///< Roof cell in Unique Rectangle
+    Floor,          ///< Floor cell in Unique Rectangle
+    ChainA,         ///< Chain color A (coloring, remote pairs, XY-chain)
+    ChainB,         ///< Chain color B
+    LinkEndpoint,   ///< Endpoint of a strong/weak link
+    SetA,           ///< Set A in ALS-XZ or Sue de Coq
+    SetB,           ///< Set B in ALS-XZ or Sue de Coq
+    SetC,           ///< Set C in ALS-XY-Wing or Death Blossom
+    CorrectAnswer,  ///< Feedback: player's correct elimination/placement
+    WrongAnswer,    ///< Feedback: player's incorrect elimination/placement
+    MissedAnswer    ///< Feedback: expected answer the player missed
 };
 
 /// Region type for solving step explanations
