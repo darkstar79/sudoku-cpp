@@ -881,22 +881,29 @@ void MainWindow::showSettingsDialog() {
     connect(difficulty_combo, &QComboBox::currentIndexChanged, this,
             [this](int idx) { settings_manager_->setDefaultDifficulty(static_cast<core::Difficulty>(idx)); });
 
-    connect(show_conflicts_cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState s) {
-        settings_manager_->setShowConflicts(s == Qt::Checked);
+    auto connectCheckBox = [this](QCheckBox* cb, auto callback) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 7, 0)
+        connect(cb, &QCheckBox::checkStateChanged, this, [callback](Qt::CheckState s) { callback(s == Qt::Checked); });
+#else
+        connect(cb, &QCheckBox::stateChanged, this, [callback](int s) { callback(s == Qt::Checked); });
+#endif
+    };
+
+    connectCheckBox(show_conflicts_cb, [this](bool checked) {
+        settings_manager_->setShowConflicts(checked);
         if (view_model_) {
-            view_model_->setShowConflicts(s == Qt::Checked);
+            view_model_->setShowConflicts(checked);
         }
     });
 
-    connect(show_hints_cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState s) {
-        settings_manager_->setShowHints(s == Qt::Checked);
+    connectCheckBox(show_hints_cb, [this](bool checked) {
+        settings_manager_->setShowHints(checked);
         if (view_model_) {
-            view_model_->setShowHints(s == Qt::Checked);
+            view_model_->setShowHints(checked);
         }
     });
 
-    connect(auto_notes_cb, &QCheckBox::checkStateChanged, this,
-            [this](Qt::CheckState s) { settings_manager_->setAutoNotesOnStartup(s == Qt::Checked); });
+    connectCheckBox(auto_notes_cb, [this](bool checked) { settings_manager_->setAutoNotesOnStartup(checked); });
 
     dialog->exec();
 }
