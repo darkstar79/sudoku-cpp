@@ -146,8 +146,8 @@ int GameViewModel::getHintCount() const {
         return 0;
     }
 
-    constexpr int MAX_HINTS = 10;
-    return MAX_HINTS - stats_result->hints_used;
+    int max_hints = settings_manager_ ? settings_manager_->getSettings().max_hints : 10;
+    return max_hints - stats_result->hints_used;
 }
 
 }  // namespace sudoku::viewmodel

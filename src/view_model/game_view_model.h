@@ -20,6 +20,7 @@
 #include "../core/i_localization_manager.h"
 #include "../core/i_puzzle_generator.h"
 #include "../core/i_save_manager.h"
+#include "../core/i_settings_manager.h"
 #include "../core/i_statistics_manager.h"
 #include "../core/i_sudoku_solver.h"
 #include "../core/observable.h"
@@ -101,7 +102,8 @@ public:
     GameViewModel(std::shared_ptr<core::IGameValidator> validator, std::shared_ptr<core::IPuzzleGenerator> generator,
                   std::shared_ptr<core::ISudokuSolver> solver, std::shared_ptr<core::IStatisticsManager> stats_manager,
                   std::shared_ptr<core::ISaveManager> save_manager,
-                  std::shared_ptr<core::ILocalizationManager> loc_manager);
+                  std::shared_ptr<core::ILocalizationManager> loc_manager,
+                  std::shared_ptr<core::ISettingsManager> settings_manager = nullptr);
 
     ~GameViewModel() = default;
     GameViewModel(const GameViewModel&) = delete;
@@ -194,6 +196,7 @@ private:
     std::shared_ptr<core::IStatisticsManager> stats_manager_;
     std::shared_ptr<core::ISaveManager> save_manager_;
     std::shared_ptr<core::ILocalizationManager> loc_manager_;
+    std::shared_ptr<core::ISettingsManager> settings_manager_;
 
     // Localization helpers
     [[nodiscard]] const char* loc(std::string_view key) const {

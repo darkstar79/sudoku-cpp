@@ -36,10 +36,12 @@
 #include <optional>
 #include <vector>
 
+#include <QCheckBox>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDialog>
 #include <QDialogButtonBox>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QInputDialog>
 #include <QLabel>
@@ -48,8 +50,10 @@
 #include <QMenuBar>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QStackedWidget>
 #include <QStatusBar>
+#include <QTabWidget>
 #include <QTextEdit>
 #include <QTimer>
 #include <QToolBar>
@@ -166,6 +170,8 @@ void MainWindow::setupMenuBar() {
     game_menu->addAction("Export Game &Sessions to CSV", this, &MainWindow::exportGameSessionsCsv);
 
     game_menu->addSeparator();
+    game_menu->addAction("Se&ttings...", QKeySequence("Ctrl+,"), this, &MainWindow::showSettingsDialog);
+    game_menu->addSeparator();
     game_menu->addAction("E&xit", QKeySequence("Alt+F4"), this, &QWidget::close);
 
     auto* edit_menu = menuBar()->addMenu("&Edit");
@@ -269,7 +275,8 @@ void MainWindow::setupStatusBar() {
 
 void MainWindow::setupAutoSaveTimer() {
     auto_save_timer_ = new QTimer(this);
-    auto_save_timer_->setInterval(30000);  // 30 seconds
+    auto interval = settings_manager_ ? settings_manager_->getSettings().auto_save_interval_ms : 30000;
+    auto_save_timer_->setInterval(interval);
     connect(auto_save_timer_, &QTimer::timeout, this, &MainWindow::onAutoSave);
     auto_save_timer_->start();
 }
@@ -349,13 +356,27 @@ void MainWindow::setTrainingViewModel(std::shared_ptr<viewmodel::TrainingViewMod
 
 void MainWindow::setLocalizationManager(std::shared_ptr<core::ILocalizationManager> loc_manager) {
     loc_manager_ = std::move(loc_manager);
+    spdlog::debug("LocalizationManager bound to MainWindow (locale: {})", loc_manager_->getCurrentLocale());
+}
 
-    auto saved_locale = loadLanguagePreference();
-    if (!saved_locale.empty() && saved_locale != loc_manager_->getCurrentLocale()) {
-        [[maybe_unused]] auto result = loc_manager_->setLocale(saved_locale);
+void MainWindow::setSettingsManager(std::shared_ptr<core::ISettingsManager> settings_manager) {
+    settings_manager_ = std::move(settings_manager);
+
+    if (settings_manager_) {
+        // Update auto-save interval from settings
+        if (auto_save_timer_) {
+            auto_save_timer_->setInterval(settings_manager_->getSettings().auto_save_interval_ms);
+        }
+
+        // Subscribe to settings changes
+        settings_manager_->settingsObservable().subscribe([this](const core::Settings& s) {
+            if (auto_save_timer_) {
+                auto_save_timer_->setInterval(s.auto_save_interval_ms);
+            }
+        });
     }
 
-    spdlog::debug("LocalizationManager bound to MainWindow (locale: {})", loc_manager_->getCurrentLocale());
+    spdlog::debug("SettingsManager bound to MainWindow");
 }
 
 void MainWindow::closeEvent(QCloseEvent* event) {
@@ -468,7 +489,10 @@ void MainWindow::handleNumberInput(int number) {
 
     // Double-press detection
     auto now = std::chrono::steady_clock::now();
-    bool is_double = (number == last_number_pressed_ && now - last_press_time_ < DOUBLE_PRESS_THRESHOLD);
+    auto threshold = settings_manager_
+                         ? std::chrono::milliseconds(settings_manager_->getSettings().double_press_threshold_ms)
+                         : DEFAULT_DOUBLE_PRESS_THRESHOLD;
+    bool is_double = (number == last_number_pressed_ && now - last_press_time_ < threshold);
 
     if (is_double) {
         view_model_->enterNumber(number);
@@ -751,27 +775,130 @@ const char* MainWindow::difficultyString(core::Difficulty difficulty) const {
     }
 }
 
-void MainWindow::saveLanguagePreference(std::string_view locale_code) {
-    auto pref_dir =
-        infrastructure::AppDirectoryManager::getDefaultDirectory(infrastructure::DirectoryType::Saves).parent_path();
-    std::filesystem::create_directories(pref_dir);
-    auto pref_file = pref_dir / "language.txt";
-    std::ofstream out(pref_file);
-    if (out) {
-        out << locale_code;
+void MainWindow::showSettingsDialog() {
+    if (!settings_manager_) {
+        return;
     }
-}
 
-std::string MainWindow::loadLanguagePreference() {
-    auto pref_file =
-        infrastructure::AppDirectoryManager::getDefaultDirectory(infrastructure::DirectoryType::Saves).parent_path() /
-        "language.txt";
-    std::ifstream in(pref_file);
-    std::string locale_code;
-    if (in) {
-        std::getline(in, locale_code);
+    auto* dialog = new QDialog(this);
+    dialog->setWindowTitle("Settings");
+    dialog->setMinimumWidth(400);
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+
+    auto* tabs = new QTabWidget(dialog);
+
+    // === Gameplay Tab ===
+    auto* gameplay_page = new QWidget();
+    auto* gameplay_layout = new QFormLayout(gameplay_page);
+
+    auto* max_hints_spin = new QSpinBox();
+    max_hints_spin->setRange(1, 50);
+    max_hints_spin->setValue(settings_manager_->getSettings().max_hints);
+    gameplay_layout->addRow("Maximum Hints:", max_hints_spin);
+
+    auto* auto_save_spin = new QSpinBox();
+    auto_save_spin->setRange(10, 300);
+    auto_save_spin->setSuffix(" seconds");
+    auto_save_spin->setValue(settings_manager_->getSettings().auto_save_interval_ms / 1000);
+    gameplay_layout->addRow("Auto-save Interval:", auto_save_spin);
+
+    auto* double_press_spin = new QSpinBox();
+    double_press_spin->setRange(100, 1000);
+    double_press_spin->setSuffix(" ms");
+    double_press_spin->setSingleStep(50);
+    double_press_spin->setValue(settings_manager_->getSettings().double_press_threshold_ms);
+    gameplay_layout->addRow("Double-press Threshold:", double_press_spin);
+
+    auto* difficulty_combo = new QComboBox();
+    difficulty_combo->addItems({"Easy", "Medium", "Hard", "Expert", "Master"});
+    difficulty_combo->setCurrentIndex(static_cast<int>(settings_manager_->getSettings().default_difficulty));
+    gameplay_layout->addRow("Default Difficulty:", difficulty_combo);
+
+    tabs->addTab(gameplay_page, "Gameplay");
+
+    // === Display Tab ===
+    auto* display_page = new QWidget();
+    auto* display_layout = new QVBoxLayout(display_page);
+
+    auto* show_conflicts_cb = new QCheckBox("Highlight Conflicts");
+    show_conflicts_cb->setChecked(settings_manager_->getSettings().show_conflicts);
+    display_layout->addWidget(show_conflicts_cb);
+
+    auto* show_hints_cb = new QCheckBox("Show Hints");
+    show_hints_cb->setChecked(settings_manager_->getSettings().show_hints);
+    display_layout->addWidget(show_hints_cb);
+
+    auto* auto_notes_cb = new QCheckBox("Auto Notes on Startup");
+    auto_notes_cb->setChecked(settings_manager_->getSettings().auto_notes_on_startup);
+    display_layout->addWidget(auto_notes_cb);
+
+    // Language selection
+    if (loc_manager_) {
+        display_layout->addSpacing(10);
+        auto* lang_layout = new QHBoxLayout();
+        lang_layout->addWidget(new QLabel("Language:"));
+        auto* lang_combo = new QComboBox();
+        auto locales = loc_manager_->getAvailableLocales();
+        int current_idx = 0;
+        for (size_t i = 0; i < locales.size(); ++i) {
+            lang_combo->addItem(QString::fromStdString(locales[i].second), QString::fromStdString(locales[i].first));
+            if (locales[i].first == settings_manager_->getSettings().language) {
+                current_idx = static_cast<int>(i);
+            }
+        }
+        lang_combo->setCurrentIndex(current_idx);
+        lang_layout->addWidget(lang_combo);
+        display_layout->addLayout(lang_layout);
+
+        connect(lang_combo, &QComboBox::currentIndexChanged, this, [this, lang_combo](int idx) {
+            auto code = lang_combo->itemData(idx).toString().toStdString();
+            settings_manager_->setLanguage(code);
+            if (loc_manager_) {
+                [[maybe_unused]] auto result = loc_manager_->setLocale(code);
+            }
+        });
     }
-    return locale_code;
+
+    display_layout->addStretch();
+    tabs->addTab(display_page, "Display");
+
+    // === Dialog layout ===
+    auto* main_layout = new QVBoxLayout(dialog);
+    main_layout->addWidget(tabs);
+    auto* button_box = new QDialogButtonBox(QDialogButtonBox::Close);
+    connect(button_box, &QDialogButtonBox::rejected, dialog, &QDialog::close);
+    main_layout->addWidget(button_box);
+
+    // === Connect signals — apply immediately ===
+    connect(max_hints_spin, &QSpinBox::valueChanged, this, [this](int v) { settings_manager_->setMaxHints(v); });
+
+    connect(auto_save_spin, &QSpinBox::valueChanged, this,
+            [this](int v) { settings_manager_->setAutoSaveInterval(v * 1000); });
+
+    connect(double_press_spin, &QSpinBox::valueChanged, this,
+            [this](int v) { settings_manager_->setDoublePressThreshold(v); });
+
+    connect(difficulty_combo, &QComboBox::currentIndexChanged, this,
+            [this](int idx) { settings_manager_->setDefaultDifficulty(static_cast<core::Difficulty>(idx)); });
+
+    connect(show_conflicts_cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState s) {
+        settings_manager_->setShowConflicts(s == Qt::Checked);
+        if (view_model_) {
+            view_model_->setShowConflicts(s == Qt::Checked);
+        }
+    });
+
+    connect(show_hints_cb, &QCheckBox::checkStateChanged, this, [this](Qt::CheckState s) {
+        settings_manager_->setShowHints(s == Qt::Checked);
+        if (view_model_) {
+            view_model_->setShowHints(s == Qt::Checked);
+        }
+    });
+
+    connect(auto_notes_cb, &QCheckBox::checkStateChanged, this,
+            [this](Qt::CheckState s) { settings_manager_->setAutoNotesOnStartup(s == Qt::Checked); });
+
+    dialog->exec();
 }
 
 }  // namespace sudoku::view

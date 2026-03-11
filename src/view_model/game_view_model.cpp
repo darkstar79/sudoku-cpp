@@ -42,12 +42,22 @@ GameViewModel::GameViewModel(std::shared_ptr<core::IGameValidator> validator,
                              std::shared_ptr<core::ISudokuSolver> solver,
                              std::shared_ptr<core::IStatisticsManager> stats_manager,
                              std::shared_ptr<core::ISaveManager> save_manager,
-                             std::shared_ptr<core::ILocalizationManager> loc_manager)
+                             std::shared_ptr<core::ILocalizationManager> loc_manager,
+                             std::shared_ptr<core::ISettingsManager> settings_manager)
     : gameState(model::GameState{}), uiState(UIState{}), statistics(StatsDisplay{}),
       recentSaves(std::vector<std::string>{}), errorMessage(std::string{}), hintMessage(std::string{}),
       validator_(std::move(validator)), generator_(std::move(generator)), solver_(std::move(solver)),
       stats_manager_(std::move(stats_manager)), save_manager_(std::move(save_manager)),
-      loc_manager_(std::move(loc_manager)) {
+      loc_manager_(std::move(loc_manager)), settings_manager_(std::move(settings_manager)) {
+    // Apply initial settings if available
+    if (settings_manager_) {
+        const auto& settings = settings_manager_->getSettings();
+        uiState.update([&settings](UIState& state) {
+            state.show_conflicts = settings.show_conflicts;
+            state.show_hints = settings.show_hints;
+            state.auto_notes_enabled = settings.auto_notes_on_startup;
+        });
+    }
     spdlog::debug("GameViewModel initialized with dependencies");
     updateUIState();
     refreshStatistics();

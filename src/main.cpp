@@ -21,6 +21,7 @@
 #include "core/i_puzzle_generator.h"
 #include "core/i_puzzle_rater.h"
 #include "core/i_save_manager.h"
+#include "core/i_settings_manager.h"
 #include "core/i_statistics_manager.h"
 #include "core/i_sudoku_solver.h"
 #include "core/i_time_provider.h"
@@ -30,6 +31,7 @@
 #include "core/puzzle_generator.h"
 #include "core/puzzle_rater.h"
 #include "core/save_manager.h"
+#include "core/settings_manager.h"
 #include "core/statistics_manager.h"
 #include "core/sudoku_solver.h"
 #include "core/training_exercise_generator.h"
@@ -87,13 +89,22 @@ void setupDependencies() {
     container.registerSingleton<sudoku::core::ISaveManager>(
         []() { return std::make_unique<sudoku::core::SaveManager>(); });
 
-    container.registerSingleton<sudoku::core::ILocalizationManager>([]() {
+    container.registerSingleton<sudoku::core::ISettingsManager>(
+        []() { return std::make_unique<sudoku::core::SettingsManager>(); });
+
+    container.registerSingleton<sudoku::core::ILocalizationManager>([&container]() {
         auto exe_dir = std::filesystem::path(QCoreApplication::applicationDirPath().toStdString());
         auto locales_dir = exe_dir / "locales";
         auto manager = std::make_unique<sudoku::core::LocalizationManager>(locales_dir);
-        auto result = manager->setLocale("en");
+        // Use language from settings if available
+        auto settings = container.resolve<sudoku::core::ISettingsManager>();
+        auto locale = settings ? settings->getSettings().language : "en";
+        auto result = manager->setLocale(locale);
         if (!result) {
-            spdlog::warn("Failed to load English locale: {}", result.error());
+            spdlog::warn("Failed to load locale '{}': {}", locale, result.error());
+            if (locale != "en") {
+                [[maybe_unused]] auto fallback = manager->setLocale("en");
+            }
         }
         return manager;
     });
@@ -119,9 +130,10 @@ std::shared_ptr<sudoku::viewmodel::GameViewModel> createViewModel() {
     auto stats_manager = container.resolve<sudoku::core::IStatisticsManager>();
     auto save_manager = container.resolve<sudoku::core::ISaveManager>();
     auto loc_manager = container.resolve<sudoku::core::ILocalizationManager>();
+    auto settings_manager = container.resolve<sudoku::core::ISettingsManager>();
 
     return std::make_shared<sudoku::viewmodel::GameViewModel>(validator, generator, solver, stats_manager, save_manager,
-                                                              loc_manager);
+                                                              loc_manager, settings_manager);
 }
 
 }  // namespace
@@ -154,30 +166,35 @@ int main(int argc, char* argv[]) {
     auto training_vm =
         std::make_shared<sudoku::viewmodel::TrainingViewModel>(exercise_gen, loc_manager, training_stats);
 
+    auto settings_manager = container.resolve<sudoku::core::ISettingsManager>();
+
     sudoku::view::MainWindow main_window;
     main_window.setViewModel(view_model);
     main_window.setLocalizationManager(loc_manager);
+    main_window.setSettingsManager(settings_manager);
     main_window.setTrainingViewModel(training_vm);
 
     // Try to load auto-save, otherwise start new game
     auto save_manager = container.resolve<sudoku::core::ISaveManager>();
+    auto default_difficulty =
+        settings_manager ? settings_manager->getSettings().default_difficulty : sudoku::core::Difficulty::Medium;
     if (save_manager->hasAutoSave()) {
         spdlog::info("Auto-save detected, attempting to load...");
         auto result = save_manager->loadAutoSave();
         if (result.has_value()) {
             if (result->is_complete) {
                 spdlog::info("Auto-save contains completed game, starting fresh");
-                view_model->startNewGame(sudoku::core::Difficulty::Medium);
+                view_model->startNewGame(default_difficulty);
             } else {
                 view_model->restoreGameState(result.value());
             }
         } else {
             spdlog::warn("Auto-save load failed: {}, starting new game", static_cast<int>(result.error()));
-            view_model->startNewGame(sudoku::core::Difficulty::Medium);
+            view_model->startNewGame(default_difficulty);
         }
     } else {
-        spdlog::info("No auto-save found, starting new Medium game");
-        view_model->startNewGame(sudoku::core::Difficulty::Medium);
+        spdlog::info("No auto-save found, starting new game");
+        view_model->startNewGame(default_difficulty);
     }
 
     main_window.show();

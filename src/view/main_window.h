@@ -17,6 +17,7 @@
 #pragma once
 
 #include "../core/i_localization_manager.h"
+#include "../core/i_settings_manager.h"
 #include "../core/observable.h"
 #include "../view_model/game_view_model.h"
 #include "../view_model/training_view_model.h"
@@ -70,6 +71,7 @@ public:
     void setViewModel(std::shared_ptr<viewmodel::GameViewModel> view_model);
     void setTrainingViewModel(std::shared_ptr<viewmodel::TrainingViewModel> training_vm);
     void setLocalizationManager(std::shared_ptr<core::ILocalizationManager> loc_manager);
+    void setSettingsManager(std::shared_ptr<core::ISettingsManager> settings_manager);
 
 protected:
     void closeEvent(QCloseEvent* event) override;
@@ -83,6 +85,7 @@ private:
 
     // Localization
     std::shared_ptr<core::ILocalizationManager> loc_manager_;
+    std::shared_ptr<core::ISettingsManager> settings_manager_;
     int selected_language_{0};
 
     [[nodiscard]] const char* loc(std::string_view key) const {
@@ -93,9 +96,6 @@ private:
     [[nodiscard]] std::string locFormat(std::string_view key, Args&&... args) const {
         return fmt::format(fmt::runtime(loc(key)), std::forward<Args>(args)...);
     }
-
-    static void saveLanguagePreference(std::string_view locale_code);
-    [[nodiscard]] static std::string loadLanguagePreference();
 
     [[nodiscard]] const char* difficultyString(core::Difficulty difficulty) const;
 
@@ -125,7 +125,7 @@ private:
     // Double-press detection
     int last_number_pressed_{0};
     std::chrono::steady_clock::time_point last_press_time_;
-    static constexpr std::chrono::milliseconds DOUBLE_PRESS_THRESHOLD{300};
+    static constexpr std::chrono::milliseconds DEFAULT_DOUBLE_PRESS_THRESHOLD{300};
 
     // Setup methods
     void setupMenuBar();
@@ -146,6 +146,7 @@ private:
     void showAboutDialog();
     void showThirdPartyLicensesDialog();
     void showTechniquesDialog();
+    void showSettingsDialog();
 
     // CSV export
     void exportAggregateStatsCsv();
