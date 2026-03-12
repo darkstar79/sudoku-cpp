@@ -77,7 +77,7 @@ SolveStep makePlacementStep(SolvingTechnique tech, Position pos, int value) {
 
 SolveStep makeEliminationStep(SolvingTechnique tech, std::vector<Elimination> elims) {
     ExplanationData data;
-    data.values = {1};
+    data.values = std::vector<int>{1};
     data.region_type = RegionType::Box;
     data.region_index = 2;
     for (const auto& e : elims) {
