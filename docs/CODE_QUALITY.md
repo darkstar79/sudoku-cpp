@@ -4,11 +4,13 @@ This document describes the code quality tools and processes for the sudoku-cpp 
 
 ## Overview
 
-The project uses three main code quality tools:
+The project uses five main code quality tools:
 
 1. **clang-format** - Automated code formatting
 2. **clang-tidy** - Static analysis and linting
-3. **gcovr** - Test coverage analysis
+3. **cppcheck** - Complementary static analysis (buffer overflows, null derefs, memory leaks)
+4. **PMD CPD** - Copy-paste detection
+5. **gcovr** - Test coverage analysis
 
 All tools automatically **exclude third-party code** and build artifacts.
 
@@ -290,6 +292,78 @@ make -j$(nproc) tidy
 # Only analyze project headers, not third-party
 HeaderFilterRegex: 'src/.*\.h$'
 ```
+
+## Cppcheck Static Analysis
+
+[cppcheck](https://cppcheck.sourceforge.io/) is a static analysis tool that complements clang-tidy by detecting different bug classes: buffer overflows, null pointer dereferences, memory leaks, and CERT/MISRA violations.
+
+### Quick Start
+
+```bash
+# Run cppcheck analysis
+./scripts/cppcheck.sh
+
+# Generate XML report for CI
+./scripts/cppcheck.sh report
+
+# Verbose output with informational messages
+./scripts/cppcheck.sh check --verbose
+```
+
+### Configuration
+
+The script uses `compile_commands.json` from the build directory for accurate analysis. Key flags:
+
+- `--enable=all` — Enable all check categories
+- `--std=c++23` — C++23 standard compliance
+- `--error-exitcode=1` — Fail on findings (for CI)
+- `--file-filter=*/src/*` — Scan only production code
+
+**Suppressions:**
+- `unmatchedSuppression` — Avoid noise from version differences
+- `missingIncludeSystem` — System headers are not cppcheck's concern
+- `unusedFunction` — Unreliable with partial compilation databases
+
+### Inline Suppressions
+
+To suppress a false positive in code:
+
+```cpp
+// cppcheck-suppress [checkId]
+someCode();
+```
+
+### CI Integration
+
+Runs in the **nightly** workflow as a parallel job. Requires a full build for `compile_commands.json`.
+
+## Copy-Paste Detection (PMD CPD)
+
+[PMD CPD](https://pmd.github.io/pmd/pmd_userdocs_cpd.html) (Copy/Paste Detector) finds duplicated code blocks using the Rabin-Karp algorithm. It catches structural clones even when identifiers differ.
+
+### Quick Start
+
+```bash
+# Install PMD (first time only)
+./scripts/cpd.sh install
+
+# Run copy-paste detection
+./scripts/cpd.sh
+
+# Lower the duplicate threshold
+./scripts/cpd.sh check --tokens 75
+```
+
+### Configuration
+
+- **Minimum tokens:** 100 (catches meaningful duplicates without excessive noise)
+- **Language:** C++
+- **Scan scope:** `src/` only (test duplication is expected with the AAA pattern)
+- **Requires:** Java runtime
+
+### CI Integration
+
+Runs in the **nightly** workflow as a parallel job. No build step needed — CPD is pure text analysis.
 
 ## Include Hygiene (IWYU)
 
