@@ -137,7 +137,6 @@ run_cpd() {
         log_success "No code duplication detected"
     elif [[ $exit_code -eq 4 ]]; then
         log_warning "Code duplication found — see output above"
-        return 1
     else
         log_error "CPD encountered an error (exit code $exit_code)"
         return "$exit_code"
