@@ -20,8 +20,8 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "fish_helpers.h"
 
-#include <algorithm>
 #include <optional>
 #include <vector>
 
@@ -65,14 +65,7 @@ private:
                                                                         const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
             // For each row, find columns where this value is a candidate
-            std::vector<std::vector<size_t>> rows_cols(BOARD_SIZE);
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        rows_cols[row].push_back(col);
-                    }
-                }
-            }
+            auto rows_cols = FishHelpers::collectCandidatePositions(board, candidates, value, true);
 
             // Find triples of rows where value appears in 2-3 columns
             // and the union of all columns is exactly 3
@@ -89,7 +82,7 @@ private:
                             continue;
                         }
 
-                        auto union_cols = columnUnion(rows_cols[r1], rows_cols[r2], rows_cols[r3]);
+                        auto union_cols = FishHelpers::indexUnion(rows_cols[r1], rows_cols[r2], rows_cols[r3]);
                         if (union_cols.size() != 3) {
                             continue;
                         }
@@ -155,14 +148,7 @@ private:
                                                                         const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
             // For each column, find rows where this value is a candidate
-            std::vector<std::vector<size_t>> cols_rows(BOARD_SIZE);
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        cols_rows[col].push_back(row);
-                    }
-                }
-            }
+            auto cols_rows = FishHelpers::collectCandidatePositions(board, candidates, value, false);
 
             // Find triples of columns where value appears in 2-3 rows
             // and the union of all rows is exactly 3
@@ -179,7 +165,7 @@ private:
                             continue;
                         }
 
-                        auto union_rows = columnUnion(cols_rows[c1], cols_rows[c2], cols_rows[c3]);
+                        auto union_rows = FishHelpers::indexUnion(cols_rows[c1], cols_rows[c2], cols_rows[c3]);
                         if (union_rows.size() != 3) {
                             continue;
                         }
@@ -236,28 +222,6 @@ private:
             }
         }
         return std::nullopt;
-    }
-
-    /// Compute sorted union of up to 3 vectors of indices
-    [[nodiscard]] static std::vector<size_t>
-    columnUnion(const std::vector<size_t>& first, const std::vector<size_t>& second, const std::vector<size_t>& third) {
-        std::vector<size_t> result;
-        result.reserve(BOARD_SIZE);
-        for (size_t idx : first) {
-            result.push_back(idx);
-        }
-        for (size_t idx : second) {
-            if (!std::ranges::contains(result, idx)) {
-                result.push_back(idx);
-            }
-        }
-        for (size_t idx : third) {
-            if (!std::ranges::contains(result, idx)) {
-                result.push_back(idx);
-            }
-        }
-        std::ranges::sort(result);
-        return result;
     }
 };
 

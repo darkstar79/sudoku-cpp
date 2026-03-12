@@ -20,6 +20,7 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "coloring_helpers.h"
 
 #include <array>
 #include <optional>
@@ -95,52 +96,7 @@ private:
     // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — BFS cluster building + inter-cluster rule checking; nesting is inherent
     findMultiColoringForValue(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates, int value) {
         // Build conjugate pair graph
-        std::array<std::vector<size_t>, TOTAL_CELLS> adj{};
-        auto addEdge = [&adj](size_t a, size_t b) {
-            adj[a].push_back(b);
-            adj[b].push_back(a);
-        };
-
-        // Rows
-        for (size_t row = 0; row < BOARD_SIZE; ++row) {
-            std::vector<size_t> cols;
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                    cols.push_back(col);
-                }
-            }
-            if (cols.size() == 2) {
-                addEdge(cellIndex(row, cols[0]), cellIndex(row, cols[1]));
-            }
-        }
-        // Columns
-        for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            std::vector<size_t> rows;
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                    rows.push_back(row);
-                }
-            }
-            if (rows.size() == 2) {
-                addEdge(cellIndex(rows[0], col), cellIndex(rows[1], col));
-            }
-        }
-        // Boxes
-        for (size_t box = 0; box < BOARD_SIZE; ++box) {
-            size_t start_row = (box / BOX_SIZE) * BOX_SIZE;
-            size_t start_col = (box % BOX_SIZE) * BOX_SIZE;
-            std::vector<size_t> cells;
-            for (size_t r = start_row; r < start_row + BOX_SIZE; ++r) {
-                for (size_t c = start_col; c < start_col + BOX_SIZE; ++c) {
-                    if (board[r][c] == EMPTY_CELL && candidates.isAllowed(r, c, value)) {
-                        cells.push_back(cellIndex(r, c));
-                    }
-                }
-            }
-            if (cells.size() == 2) {
-                addEdge(cells[0], cells[1]);
-            }
-        }
+        auto adj = ColoringHelpers::buildConjugatePairGraph(board, candidates, value);
 
         // BFS coloring to find all components
         std::array<int8_t, TOTAL_CELLS> color{};

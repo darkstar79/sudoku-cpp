@@ -20,6 +20,7 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "wing_helpers.h"
 
 #include <algorithm>
 #include <array>
@@ -40,22 +41,8 @@ class VWXYZWingStrategy : public ISolvingStrategy, protected StrategyBase {
 public:
     [[nodiscard]] std::optional<SolveStep> findStep(const std::vector<std::vector<int>>& board,
                                                     const CandidateGrid& candidates) const override {
-        std::vector<Position> pivot_cells;
-        std::vector<Position> bivalue_cells;
-        for (size_t row = 0; row < BOARD_SIZE; ++row) {
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (board[row][col] != EMPTY_CELL) {
-                    continue;
-                }
-                int count = candidates.countPossibleValues(row, col);
-                if (count >= 3 && count <= 5) {
-                    pivot_cells.push_back(Position{.row = row, .col = col});
-                }
-                if (count == 2) {
-                    bivalue_cells.push_back(Position{.row = row, .col = col});
-                }
-            }
-        }
+        auto pivot_cells = WingHelpers::findCellsByCandidateCount(board, candidates, 3, 5);
+        auto bivalue_cells = WingHelpers::findCellsByCandidateCount(board, candidates, 2, 2);
 
         for (const auto& pivot : pivot_cells) {
             auto result = tryPivot(board, candidates, pivot, bivalue_cells);
@@ -80,18 +67,6 @@ public:
     }
 
 private:
-    /// Checks whether all cells in the list mutually see each other
-    [[nodiscard]] static bool allMutuallyVisible(const std::vector<Position>& cells) {
-        for (size_t ci = 0; ci < cells.size(); ++ci) {
-            for (size_t cj = ci + 1; cj < cells.size(); ++cj) {
-                if (!sees(cells[ci], cells[cj])) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
     // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — enumerates wing quadruples for VWXYZ pattern; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> tryPivot(const std::vector<std::vector<int>>& board,
                                                            const CandidateGrid& candidates, const Position& pivot,
@@ -177,7 +152,7 @@ private:
                     cells_with_val.push_back(pattern[ci]);
                 }
             }
-            if (!allMutuallyVisible(cells_with_val)) {
+            if (!WingHelpers::allMutuallyVisible(cells_with_val)) {
                 ++non_restricted_count;
                 z_value = val;
                 z_cells = std::move(cells_with_val);

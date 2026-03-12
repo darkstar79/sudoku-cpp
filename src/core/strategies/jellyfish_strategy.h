@@ -20,8 +20,8 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "fish_helpers.h"
 
-#include <algorithm>
 #include <optional>
 #include <vector>
 
@@ -60,14 +60,7 @@ private:
     [[nodiscard]] static std::optional<SolveStep> findRowBased(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
-            std::vector<std::vector<size_t>> rows_cols(BOARD_SIZE);
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        rows_cols[row].push_back(col);
-                    }
-                }
-            }
+            auto rows_cols = FishHelpers::collectCandidatePositions(board, candidates, value, true);
 
             // Find 4 rows with 2-4 candidate positions each, union of cols == 4
             for (size_t r1 = 0; r1 < BOARD_SIZE; ++r1) {
@@ -87,7 +80,8 @@ private:
                                 continue;
                             }
 
-                            auto union_cols = indexUnion(rows_cols[r1], rows_cols[r2], rows_cols[r3], rows_cols[r4]);
+                            auto union_cols =
+                                FishHelpers::indexUnion(rows_cols[r1], rows_cols[r2], rows_cols[r3], rows_cols[r4]);
                             if (union_cols.size() != 4) {
                                 continue;
                             }
@@ -152,14 +146,7 @@ private:
     [[nodiscard]] static std::optional<SolveStep> findColBased(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
-            std::vector<std::vector<size_t>> cols_rows(BOARD_SIZE);
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        cols_rows[col].push_back(row);
-                    }
-                }
-            }
+            auto cols_rows = FishHelpers::collectCandidatePositions(board, candidates, value, false);
 
             for (size_t c1 = 0; c1 < BOARD_SIZE; ++c1) {
                 if (cols_rows[c1].size() < 2 || cols_rows[c1].size() > 4) {
@@ -178,7 +165,8 @@ private:
                                 continue;
                             }
 
-                            auto union_rows = indexUnion(cols_rows[c1], cols_rows[c2], cols_rows[c3], cols_rows[c4]);
+                            auto union_rows =
+                                FishHelpers::indexUnion(cols_rows[c1], cols_rows[c2], cols_rows[c3], cols_rows[c4]);
                             if (union_rows.size() != 4) {
                                 continue;
                             }
@@ -237,34 +225,6 @@ private:
             }
         }
         return std::nullopt;
-    }
-
-    /// Sorted union of 4 index vectors.
-    [[nodiscard]] static std::vector<size_t> indexUnion(const std::vector<size_t>& first,
-                                                        const std::vector<size_t>& second,
-                                                        const std::vector<size_t>& third,
-                                                        const std::vector<size_t>& fourth) {
-        std::vector<size_t> result;
-        result.reserve(BOARD_SIZE);
-        auto add = [&](size_t idx) {
-            if (!std::ranges::contains(result, idx)) {
-                result.push_back(idx);
-            }
-        };
-        for (size_t idx : first) {
-            add(idx);
-        }
-        for (size_t idx : second) {
-            add(idx);
-        }
-        for (size_t idx : third) {
-            add(idx);
-        }
-        for (size_t idx : fourth) {
-            add(idx);
-        }
-        std::ranges::sort(result);
-        return result;
     }
 };
 

@@ -20,6 +20,7 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "fish_helpers.h"
 
 #include <optional>
 #include <vector>
@@ -66,14 +67,7 @@ private:
                                                                     const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
             // For each row, find columns where this value is a candidate
-            std::vector<std::vector<size_t>> rows_cols(BOARD_SIZE);
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        rows_cols[row].push_back(col);
-                    }
-                }
-            }
+            auto rows_cols = FishHelpers::collectCandidatePositions(board, candidates, value, true);
 
             // Find pairs of rows where value appears in exactly 2 positions in same columns
             for (size_t row1 = 0; row1 < BOARD_SIZE; ++row1) {
@@ -140,14 +134,7 @@ private:
                                                                     const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
             // For each column, find rows where this value is a candidate
-            std::vector<std::vector<size_t>> cols_rows(BOARD_SIZE);
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        cols_rows[col].push_back(row);
-                    }
-                }
-            }
+            auto cols_rows = FishHelpers::collectCandidatePositions(board, candidates, value, false);
 
             // Find pairs of columns where value appears in exactly 2 positions in same rows
             for (size_t col1 = 0; col1 < BOARD_SIZE; ++col1) {

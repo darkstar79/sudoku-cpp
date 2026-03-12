@@ -20,6 +20,7 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "coloring_helpers.h"
 
 #include <algorithm>
 #include <array>
@@ -72,68 +73,10 @@ private:
         return Position{.row = idx / BOARD_SIZE, .col = idx % BOARD_SIZE};
     }
 
-    /// Add a bidirectional edge to the adjacency list.
-    static void addEdge(std::array<std::vector<size_t>, TOTAL_CELLS>& adj, size_t a, size_t b) {
-        adj[a].push_back(b);
-        adj[b].push_back(a);
-    }
-
-    /// Collect candidate cell indices for a digit within one unit, add strong link if exactly 2.
-    static void addStrongLinksForRows(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
-                                      int digit, std::array<std::vector<size_t>, TOTAL_CELLS>& adj) {
-        for (size_t row = 0; row < BOARD_SIZE; ++row) {
-            std::vector<size_t> cols;
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, digit)) {
-                    cols.push_back(col);
-                }
-            }
-            if (cols.size() == 2) {
-                addEdge(adj, cellIndex(row, cols[0]), cellIndex(row, cols[1]));
-            }
-        }
-    }
-
-    static void addStrongLinksForCols(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
-                                      int digit, std::array<std::vector<size_t>, TOTAL_CELLS>& adj) {
-        for (size_t col = 0; col < BOARD_SIZE; ++col) {
-            std::vector<size_t> rows;
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, digit)) {
-                    rows.push_back(row);
-                }
-            }
-            if (rows.size() == 2) {
-                addEdge(adj, cellIndex(rows[0], col), cellIndex(rows[1], col));
-            }
-        }
-    }
-
-    static void addStrongLinksForBoxes(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates,
-                                       int digit, std::array<std::vector<size_t>, TOTAL_CELLS>& adj) {
-        for (size_t box = 0; box < BOARD_SIZE; ++box) {
-            size_t sr = (box / BOX_SIZE) * BOX_SIZE;
-            size_t sc = (box % BOX_SIZE) * BOX_SIZE;
-            std::vector<size_t> cells;
-            for (size_t r = sr; r < sr + BOX_SIZE; ++r) {
-                for (size_t c = sc; c < sc + BOX_SIZE; ++c) {
-                    if (board[r][c] == EMPTY_CELL && candidates.isAllowed(r, c, digit)) {
-                        cells.push_back(cellIndex(r, c));
-                    }
-                }
-            }
-            if (cells.size() == 2) {
-                addEdge(adj, cells[0], cells[1]);
-            }
-        }
-    }
-
     /// Build strong link adjacency list (conjugate pairs in each unit).
     static void buildStrongLinks(const std::vector<std::vector<int>>& board, const CandidateGrid& candidates, int digit,
                                  std::array<std::vector<size_t>, TOTAL_CELLS>& strong_adj) {
-        addStrongLinksForRows(board, candidates, digit, strong_adj);
-        addStrongLinksForCols(board, candidates, digit, strong_adj);
-        addStrongLinksForBoxes(board, candidates, digit, strong_adj);
+        strong_adj = ColoringHelpers::buildConjugatePairGraph(board, candidates, digit);
     }
 
     /// Build weak link adjacency list (cells sharing a unit with candidate).

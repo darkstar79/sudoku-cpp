@@ -20,6 +20,7 @@
 #include "../solve_step.h"
 #include "../solving_technique.h"
 #include "../strategy_base.h"
+#include "fish_helpers.h"
 
 #include <optional>
 #include <vector>
@@ -62,14 +63,7 @@ private:
     [[nodiscard]] static std::optional<SolveStep> findRowBased(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
-            std::vector<std::vector<size_t>> rows_cols(BOARD_SIZE);
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        rows_cols[row].push_back(col);
-                    }
-                }
-            }
+            auto rows_cols = FishHelpers::collectCandidatePositions(board, candidates, value, true);
 
             for (size_t row1 = 0; row1 < BOARD_SIZE; ++row1) {
                 for (size_t row2 = row1 + 1; row2 < BOARD_SIZE; ++row2) {
@@ -169,14 +163,7 @@ private:
     [[nodiscard]] static std::optional<SolveStep> findColBased(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates) {
         for (int value = MIN_VALUE; value <= MAX_VALUE; ++value) {
-            std::vector<std::vector<size_t>> cols_rows(BOARD_SIZE);
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                    if (board[row][col] == EMPTY_CELL && candidates.isAllowed(row, col, value)) {
-                        cols_rows[col].push_back(row);
-                    }
-                }
-            }
+            auto cols_rows = FishHelpers::collectCandidatePositions(board, candidates, value, false);
 
             for (size_t col1 = 0; col1 < BOARD_SIZE; ++col1) {
                 for (size_t col2 = col1 + 1; col2 < BOARD_SIZE; ++col2) {
