@@ -64,14 +64,7 @@ private:
     [[nodiscard]] static std::optional<SolveStep> findNakedQuadInRegion(const std::vector<std::vector<int>>& board,
                                                                         const CandidateGrid& candidates,
                                                                         RegionType region_type, size_t region_idx) {
-        std::vector<Position> empty_cells;
-        if (region_type == RegionType::Row) {
-            empty_cells = getEmptyCellsInRow(board, region_idx);
-        } else if (region_type == RegionType::Col) {
-            empty_cells = getEmptyCellsInCol(board, region_idx);
-        } else {
-            empty_cells = getEmptyCellsInBox(board, region_idx);
-        }
+        auto empty_cells = getEmptyCellsInUnit(board, region_type, region_idx);
 
         // Find cells with 2-4 candidates (potential quad members)
         std::vector<Position> quad_candidates;

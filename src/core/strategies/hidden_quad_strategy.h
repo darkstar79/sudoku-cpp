@@ -63,14 +63,7 @@ private:
     [[nodiscard]] static std::optional<SolveStep> findHiddenQuadInRegion(const std::vector<std::vector<int>>& board,
                                                                          const CandidateGrid& candidates,
                                                                          RegionType region_type, size_t region_idx) {
-        std::vector<Position> empty_cells;
-        if (region_type == RegionType::Row) {
-            empty_cells = getEmptyCellsInRow(board, region_idx);
-        } else if (region_type == RegionType::Col) {
-            empty_cells = getEmptyCellsInCol(board, region_idx);
-        } else {
-            empty_cells = getEmptyCellsInBox(board, region_idx);
-        }
+        auto empty_cells = getEmptyCellsInUnit(board, region_type, region_idx);
 
         if (empty_cells.size() < 4) {
             return std::nullopt;

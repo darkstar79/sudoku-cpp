@@ -56,6 +56,7 @@ public:
     }
 
 private:
+    // CPD-OFF — fish enumeration pattern shared with finned strategies
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) — value×row1×row2×row3×row4 search; nesting is inherent to fish algorithms
     [[nodiscard]] static std::optional<SolveStep> findRowBased(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates) {
@@ -226,6 +227,7 @@ private:
         }
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

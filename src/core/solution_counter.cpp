@@ -73,6 +73,7 @@ SolverPath SolutionCounter::resolveEffectivePath() const {
     return path;
 }
 
+// CPD-OFF — different timeout semantics and return-on-timeout policies
 int SolutionCounter::countSolutions(const std::vector<std::vector<int>>& board, int max_solutions) const {
     // Note: Cache is now cleared per-attempt in generatePuzzle(), not per-call here
     // This allows cache accumulation across multiple countSolutions() calls within
@@ -169,6 +170,7 @@ int SolutionCounter::countSolutionsWithTimeout(const std::vector<std::vector<int
     }
     return count;
 }
+// CPD-ON
 
 // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — performance-critical recursive backtracking hot path; monolithic for inlining; refactoring adds call overhead on inner loop
 void SolutionCounter::countSolutionsHelper(Board& board, ConstraintState& state, int& count, int max_solutions,

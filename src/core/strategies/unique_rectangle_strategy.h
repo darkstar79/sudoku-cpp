@@ -123,6 +123,8 @@ public:
     }
 
 private:
+    // CPD-OFF — UR type 1-4 share structural patterns (floor analysis, bivalue matching) that differ in elimination
+    // logic
     /// Given two bivalue cells {A,B} in the same row, find a row that completes a UR.
     [[nodiscard]] static std::optional<SolveStep> findRectangleCompletion(const std::vector<std::vector<int>>& board,
                                                                           const CandidateGrid& candidates,
@@ -179,16 +181,6 @@ private:
             return false;
         }
         return countUniqueBoxes(c1, c2, c3, c4) == 2;
-    }
-
-    /// Counts the number of unique boxes spanned by 4 cells.
-    [[nodiscard]] static size_t countUniqueBoxes(const Position& c1, const Position& c2, const Position& c3,
-                                                 const Position& c4) {
-        std::vector<size_t> boxes = {getBoxIndex(c1.row, c1.col), getBoxIndex(c2.row, c2.col),
-                                     getBoxIndex(c3.row, c3.col), getBoxIndex(c4.row, c4.col)};
-        std::ranges::sort(boxes);
-        auto last = std::ranges::unique(boxes);
-        return static_cast<size_t>(std::ranges::distance(boxes.begin(), last.begin()));
     }
 
     /// Checks if a cell is bivalue with exactly {A,B}.
@@ -344,26 +336,8 @@ private:
         }
 
         // Find cells in the shared unit that have C as candidate (excluding floor cells)
-        size_t unit_index = 0;
-        std::vector<Position> unit_cells;
-        if (unit_type == RegionType::Row) {
-            unit_index = floor[0].row;
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (board[unit_index][col] == EMPTY_CELL) {
-                    unit_cells.push_back(Position{.row = unit_index, .col = col});
-                }
-            }
-        } else if (unit_type == RegionType::Col) {
-            unit_index = floor[0].col;
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                if (board[row][unit_index] == EMPTY_CELL) {
-                    unit_cells.push_back(Position{.row = row, .col = unit_index});
-                }
-            }
-        } else {
-            unit_index = getBoxIndex(floor[0].row, floor[0].col);
-            unit_cells = getEmptyCellsInBox(board, unit_index);
-        }
+        size_t unit_index = getUnitIndex(unit_type, floor[0]);
+        auto unit_cells = getEmptyCellsInUnit(board, unit_type, unit_index);
 
         std::vector<Elimination> eliminations;
         for (const auto& cell : unit_cells) {
@@ -445,26 +419,8 @@ private:
             return std::nullopt;
         }
 
-        size_t unit_index = 0;
-        std::vector<Position> unit_cells;
-        if (unit_type == RegionType::Row) {
-            unit_index = floor[0].row;
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (board[unit_index][col] == EMPTY_CELL) {
-                    unit_cells.push_back(Position{.row = unit_index, .col = col});
-                }
-            }
-        } else if (unit_type == RegionType::Col) {
-            unit_index = floor[0].col;
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                if (board[row][unit_index] == EMPTY_CELL) {
-                    unit_cells.push_back(Position{.row = row, .col = unit_index});
-                }
-            }
-        } else {
-            unit_index = getBoxIndex(floor[0].row, floor[0].col);
-            unit_cells = getEmptyCellsInBox(board, unit_index);
-        }
+        size_t unit_index = getUnitIndex(unit_type, floor[0]);
+        auto unit_cells = getEmptyCellsInUnit(board, unit_type, unit_index);
 
         // Find a cell in the unit (not a floor cell) whose candidates are a subset of extras_union
         // This cell + the two floor cells' extras form a naked pair/triple
@@ -551,26 +507,8 @@ private:
             return std::nullopt;
         }
 
-        size_t unit_index = 0;
-        std::vector<Position> unit_cells;
-        if (unit_type == RegionType::Row) {
-            unit_index = floor[0].row;
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (board[unit_index][col] == EMPTY_CELL) {
-                    unit_cells.push_back(Position{.row = unit_index, .col = col});
-                }
-            }
-        } else if (unit_type == RegionType::Col) {
-            unit_index = floor[0].col;
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                if (board[row][unit_index] == EMPTY_CELL) {
-                    unit_cells.push_back(Position{.row = row, .col = unit_index});
-                }
-            }
-        } else {
-            unit_index = getBoxIndex(floor[0].row, floor[0].col);
-            unit_cells = getEmptyCellsInBox(board, unit_index);
-        }
+        size_t unit_index = getUnitIndex(unit_type, floor[0]);
+        auto unit_cells = getEmptyCellsInUnit(board, unit_type, unit_index);
 
         // Check if A or B forms a strong link in this unit (only appears in the 2 floor cells)
         for (int strong_val : {val_a, val_b}) {
@@ -639,6 +577,7 @@ private:
 
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

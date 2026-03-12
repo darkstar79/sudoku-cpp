@@ -36,6 +36,7 @@ class TestBoardInteraction;
 
 namespace sudoku::view {
 
+// CPD-OFF — board color constants shared with training_board_widget
 namespace BoardColors {
 inline constexpr QColor BOARD_BORDER{44, 44, 44};
 inline constexpr QColor BOARD_BACKGROUND{255, 255, 255};
@@ -78,6 +79,7 @@ private:
     void paintCellValue(QPainter& painter, const model::Cell& cell, const QRectF& cell_rect);
     void paintCellNotes(QPainter& painter, const model::Cell& cell, const QRectF& cell_rect);
     void paintGridLines(QPainter& painter, const QPointF& origin, float board_size, float cell_size);
+    // CPD-ON
 
 #ifdef SUDOKU_UI_TESTING
     friend class ::TestBoardInteraction;

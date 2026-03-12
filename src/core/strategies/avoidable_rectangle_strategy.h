@@ -21,7 +21,6 @@
 #include "../solving_technique.h"
 #include "../strategy_base.h"
 
-#include <algorithm>
 #include <optional>
 #include <vector>
 
@@ -59,6 +58,7 @@ public:
     }
 
 private:
+    // CPD-OFF — rectangle-based strategy structurally similar to UR but with solver-placed cell semantics
     /// Search for Avoidable Rectangle patterns.
     // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — rectangle enumeration with solver-placed value checks; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> findAvoidableRectangle(const std::vector<std::vector<int>>& board,
@@ -255,16 +255,7 @@ private:
                                               .values = {val_a, val_b, elim_val},
                                               .position_roles = std::move(roles)}};
     }
-
-    /// Counts unique boxes spanned by 4 cells.
-    [[nodiscard]] static size_t countUniqueBoxes(const Position& c1, const Position& c2, const Position& c3,
-                                                 const Position& c4) {
-        std::vector<size_t> boxes = {getBoxIndex(c1.row, c1.col), getBoxIndex(c2.row, c2.col),
-                                     getBoxIndex(c3.row, c3.col), getBoxIndex(c4.row, c4.col)};
-        std::ranges::sort(boxes);
-        auto last = std::ranges::unique(boxes);
-        return static_cast<size_t>(std::ranges::distance(boxes.begin(), last.begin()));
-    }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

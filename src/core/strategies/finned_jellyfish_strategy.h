@@ -57,6 +57,7 @@ public:
     }
 
 private:
+    // CPD-OFF — fish enumeration pattern shared with finned_swordfish and jellyfish
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) — value×row1×row2×row3×row4 search; nesting is inherent to fish algorithms
     [[nodiscard]] static std::optional<SolveStep> findRowBased(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates) {
@@ -98,7 +99,6 @@ private:
         return std::nullopt;
     }
 
-    // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — fin candidate enumeration over 4-row Jellyfish; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> tryRowFinned(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates, int value,
                                                                const std::vector<std::vector<size_t>>& rows_cols,
@@ -106,88 +106,26 @@ private:
                                                                const std::vector<size_t>& union_cols) {
         std::array<size_t, 4> rows = {r1, r2, r3, r4};
 
-        // Try each of the 5 cols as the fin col
         for (size_t fi = 0; fi < 5; ++fi) {
-            size_t fin_col = union_cols[fi];
-            std::vector<size_t> base_cols;
-            for (size_t ci = 0; ci < 5; ++ci) {
-                if (ci != fi) {
-                    base_cols.push_back(union_cols[ci]);
-                }
-            }
-
-            // Exactly one row should have the fin col
-            size_t fin_row = 0;
-            int fin_row_count = 0;
-            for (size_t row : rows) {
-                bool has_fin = std::ranges::contains(rows_cols[row], fin_col);
-                if (has_fin) {
-                    fin_row = row;
-                    ++fin_row_count;
-                }
-            }
-
-            if (fin_row_count != 1) {
+            auto info = FishHelpers::validateFinnedFish(rows_cols, rows, union_cols, fi);
+            if (!info) {
                 continue;
             }
 
-            // Non-finned rows' candidates must all be within base_cols
-            bool valid = true;
-            for (size_t row : rows) {
-                if (row == fin_row) {
-                    continue;
-                }
-                for (size_t col : rows_cols[row]) {
-                    if (!std::ranges::contains(base_cols, col)) {
-                        valid = false;
-                        break;
-                    }
-                }
-                if (!valid) {
-                    break;
-                }
-            }
-            if (!valid) {
-                continue;
-            }
+            Position fin_pos{.row = info->fin_primary, .col = info->fin_secondary};
+            size_t fin_box = getBoxIndex(fin_pos.row, fin_pos.col);
 
-            Position fin_pos{.row = fin_row, .col = fin_col};
-            size_t fin_box = getBoxIndex(fin_row, fin_col);
-
-            std::vector<Elimination> eliminations;
-            for (size_t row = 0; row < BOARD_SIZE; ++row) {
-                if (row == r1 || row == r2 || row == r3 || row == r4) {
-                    continue;
-                }
-                for (size_t col : base_cols) {
-                    if (getBoxIndex(row, col) == fin_box && board[row][col] == EMPTY_CELL &&
-                        candidates.isAllowed(row, col, value)) {
-                        eliminations.push_back(
-                            Elimination{.position = Position{.row = row, .col = col}, .value = value});
-                    }
-                }
-            }
-
+            auto eliminations = FishHelpers::buildFinnedEliminations(board, candidates, value, rows,
+                                                                     info->base_secondaries, fin_box, true);
             if (eliminations.empty()) {
                 continue;
             }
 
-            std::vector<Position> positions;
-            for (size_t row : rows) {
-                for (size_t col : rows_cols[row]) {
-                    positions.push_back(Position{.row = row, .col = col});
-                }
-            }
+            auto [positions, roles] = FishHelpers::buildFinnedPositionsAndRoles(rows_cols, rows, fin_pos, true);
 
             auto explanation = fmt::format("Finned Jellyfish on value {} in Rows {}, {}, {}, {} with fin at {} — "
                                            "eliminates {} from cells in fin's box",
                                            value, r1 + 1, r2 + 1, r3 + 1, r4 + 1, formatPosition(fin_pos), value);
-
-            std::vector<CellRole> roles;
-            roles.reserve(positions.size());
-            for (const auto& pos : positions) {
-                roles.push_back(pos == fin_pos ? CellRole::Fin : CellRole::Pattern);
-            }
 
             return SolveStep{.type = SolveStepType::Elimination,
                              .technique = SolvingTechnique::FinnedJellyfish,
@@ -246,7 +184,6 @@ private:
         return std::nullopt;
     }
 
-    // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — fin candidate enumeration over 4-col Jellyfish; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> tryColFinned(const std::vector<std::vector<int>>& board,
                                                                const CandidateGrid& candidates, int value,
                                                                const std::vector<std::vector<size_t>>& cols_rows,
@@ -255,84 +192,25 @@ private:
         std::array<size_t, 4> cols = {c1, c2, c3, c4};
 
         for (size_t fi = 0; fi < 5; ++fi) {
-            size_t fin_row = union_rows[fi];
-            std::vector<size_t> base_rows;
-            for (size_t ri = 0; ri < 5; ++ri) {
-                if (ri != fi) {
-                    base_rows.push_back(union_rows[ri]);
-                }
-            }
-
-            size_t fin_col = 0;
-            int fin_col_count = 0;
-            for (size_t col : cols) {
-                bool has_fin = std::ranges::contains(cols_rows[col], fin_row);
-                if (has_fin) {
-                    fin_col = col;
-                    ++fin_col_count;
-                }
-            }
-
-            if (fin_col_count != 1) {
+            auto info = FishHelpers::validateFinnedFish(cols_rows, cols, union_rows, fi);
+            if (!info) {
                 continue;
             }
 
-            bool valid = true;
-            for (size_t col : cols) {
-                if (col == fin_col) {
-                    continue;
-                }
-                for (size_t row : cols_rows[col]) {
-                    if (!std::ranges::contains(base_rows, row)) {
-                        valid = false;
-                        break;
-                    }
-                }
-                if (!valid) {
-                    break;
-                }
-            }
-            if (!valid) {
-                continue;
-            }
+            Position fin_pos{.row = info->fin_secondary, .col = info->fin_primary};
+            size_t fin_box = getBoxIndex(fin_pos.row, fin_pos.col);
 
-            Position fin_pos{.row = fin_row, .col = fin_col};
-            size_t fin_box = getBoxIndex(fin_row, fin_col);
-
-            std::vector<Elimination> eliminations;
-            for (size_t col = 0; col < BOARD_SIZE; ++col) {
-                if (col == c1 || col == c2 || col == c3 || col == c4) {
-                    continue;
-                }
-                for (size_t row : base_rows) {
-                    if (getBoxIndex(row, col) == fin_box && board[row][col] == EMPTY_CELL &&
-                        candidates.isAllowed(row, col, value)) {
-                        eliminations.push_back(
-                            Elimination{.position = Position{.row = row, .col = col}, .value = value});
-                    }
-                }
-            }
-
+            auto eliminations = FishHelpers::buildFinnedEliminations(board, candidates, value, cols,
+                                                                     info->base_secondaries, fin_box, false);
             if (eliminations.empty()) {
                 continue;
             }
 
-            std::vector<Position> positions;
-            for (size_t col : cols) {
-                for (size_t row : cols_rows[col]) {
-                    positions.push_back(Position{.row = row, .col = col});
-                }
-            }
+            auto [positions, roles] = FishHelpers::buildFinnedPositionsAndRoles(cols_rows, cols, fin_pos, false);
 
             auto explanation = fmt::format("Finned Jellyfish on value {} in Columns {}, {}, {}, {} with fin at {} — "
                                            "eliminates {} from cells in fin's box",
                                            value, c1 + 1, c2 + 1, c3 + 1, c4 + 1, formatPosition(fin_pos), value);
-
-            std::vector<CellRole> roles;
-            roles.reserve(positions.size());
-            for (const auto& pos : positions) {
-                roles.push_back(pos == fin_pos ? CellRole::Fin : CellRole::Pattern);
-            }
 
             return SolveStep{.type = SolveStepType::Elimination,
                              .technique = SolvingTechnique::FinnedJellyfish,
@@ -349,6 +227,7 @@ private:
         }
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

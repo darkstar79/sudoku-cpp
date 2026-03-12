@@ -37,6 +37,7 @@ class RemotePairsStrategy : public ISolvingStrategy, protected StrategyBase {
 public:
     [[nodiscard]] std::optional<SolveStep> findStep(const std::vector<std::vector<int>>& board,
                                                     const CandidateGrid& candidates) const override {
+        // CPD-OFF — bivalue cell collection pattern shared with UR and w_wing
         // Collect all bivalue cells, grouped by candidate pair
         std::vector<Position> bivalue_cells;
         for (size_t row = 0; row < BOARD_SIZE; ++row) {
@@ -46,6 +47,7 @@ public:
                 }
             }
         }
+        // CPD-ON
 
         // Group by candidate pair (using mask as key)
         for (size_t start = 0; start < bivalue_cells.size(); ++start) {

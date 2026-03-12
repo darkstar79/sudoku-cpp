@@ -21,6 +21,7 @@
 #include "../core/i_training_statistics_manager.h"
 #include "../core/observable.h"
 #include "../core/technique_descriptions.h"
+#include "../core/training_hints.h"
 #include "../core/training_types.h"
 #include "core/solve_step.h"
 #include "core/solving_technique.h"
@@ -28,7 +29,9 @@
 #include <format>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace sudoku::viewmodel {
@@ -158,6 +161,13 @@ private:
 
     /// Record lesson stats when transitioning to LessonComplete
     void recordLessonStats();
+
+    /// Extract the set of eliminations the player made (comparing current board to original masks)
+    [[nodiscard]] static std::set<std::tuple<size_t, size_t, int>>
+    extractPlayerEliminations(const core::TrainingBoard& player_board, const core::TrainingExercise& exercise);
+
+    /// Apply hint highlight cells and roles to a training board
+    static void applyHintHighlights(core::TrainingBoard& board, const core::TrainingHint& hint);
 };
 
 }  // namespace sudoku::viewmodel

@@ -295,16 +295,6 @@ private:
 
         return false;
     }
-
-    /// Counts the number of unique boxes spanned by 4 cells.
-    [[nodiscard]] static size_t countUniqueBoxes(const Position& c1, const Position& c2, const Position& c3,
-                                                 const Position& c4) {
-        std::vector<size_t> boxes = {getBoxIndex(c1.row, c1.col), getBoxIndex(c2.row, c2.col),
-                                     getBoxIndex(c3.row, c3.col), getBoxIndex(c4.row, c4.col)};
-        std::ranges::sort(boxes);
-        auto last = std::ranges::unique(boxes);
-        return static_cast<size_t>(std::ranges::distance(boxes.begin(), last.begin()));
-    }
 };
 
 }  // namespace sudoku::core

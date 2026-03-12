@@ -157,6 +157,7 @@ private:
         return tryPetalCombination3(board, candidates, stem, stem_mask, all_als, stem_cands, petals_by_cand);
     }
 
+    // CPD-OFF — different loop nesting depths
     /// Try 2-petal combinations.
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) — 2-petal combination search; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep>
@@ -204,6 +205,7 @@ private:
         }
         return std::nullopt;
     }
+    // CPD-ON
 
     /// Check for common value Z across all petals and compute eliminations.
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) — Z-value search + elimination check; nesting is inherent

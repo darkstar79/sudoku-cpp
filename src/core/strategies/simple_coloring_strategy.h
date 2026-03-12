@@ -175,6 +175,7 @@ private:
         return std::nullopt;
     }
 
+    // CPD-OFF — graph coloring pattern shared with multi_coloring
     [[nodiscard]] static std::optional<SolveStep> buildContradictionStep(const CandidateGrid& candidates, int value,
                                                                          const std::vector<size_t>& false_color_cells) {
         std::vector<Elimination> eliminations;
@@ -208,6 +209,7 @@ private:
                                  .technique_subtype = 0,  // 0 = contradiction
                                  .position_roles = std::vector<CellRole>(positions.size(), CellRole::ChainA)}};
     }
+    // CPD-ON
 
     /// Rule 2: An outside cell that sees cells of both colors can have the value eliminated.
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) — scans all uncolored cells for color exclusion; nesting is inherent

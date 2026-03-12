@@ -132,6 +132,7 @@ private:
         return std::nullopt;
     }
 
+    // CPD-OFF — row/col symmetry
     /// Find conjugate pair in a row outside the ER box that passes through er_col.
     [[nodiscard]] static std::optional<SolveStep> tryRowConjugate(const std::vector<std::vector<int>>& board,
                                                                   const CandidateGrid& candidates, int value,
@@ -269,6 +270,7 @@ private:
         }
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

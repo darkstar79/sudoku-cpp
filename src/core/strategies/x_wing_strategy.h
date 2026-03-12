@@ -60,6 +60,7 @@ public:
     }
 
 private:
+    // CPD-OFF — row/col symmetry
     /// Row-based X-Wing: candidate in exactly 2 cols in each of 2 rows (same cols)
     /// → eliminate from those cols in all other rows
     // NOLINTNEXTLINE(readability-function-cognitive-complexity) — value×row1×row2 search; nesting is inherent to fish algorithms
@@ -193,6 +194,7 @@ private:
         }
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

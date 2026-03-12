@@ -69,14 +69,7 @@ private:
                                                                          const CandidateGrid& state,
                                                                          RegionType region_type, size_t region_idx) {
         // Get empty cells in region
-        std::vector<Position> empty_cells;
-        if (region_type == RegionType::Row) {
-            empty_cells = getEmptyCellsInRow(board, region_idx);
-        } else if (region_type == RegionType::Col) {
-            empty_cells = getEmptyCellsInCol(board, region_idx);
-        } else {
-            empty_cells = getEmptyCellsInBox(board, region_idx);
-        }
+        auto empty_cells = getEmptyCellsInUnit(board, region_type, region_idx);
 
         if (empty_cells.size() < 2) {
             return std::nullopt;

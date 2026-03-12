@@ -67,6 +67,7 @@ public:
     }
 
 private:
+    // CPD-OFF — wing enumeration with different nesting depths vs wxyz_wing
     // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — enumerates wing quadruples for VWXYZ pattern; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> tryPivot(const std::vector<std::vector<int>>& board,
                                                            const CandidateGrid& candidates, const Position& pivot,
@@ -164,6 +165,7 @@ private:
         }
         return ZValueResult{.z_value = z_value, .z_cells = std::move(z_cells)};
     }
+    // CPD-ON
 
     /// Check if a position sees all cells in a list.
     [[nodiscard]] static bool seesAllCells(const Position& pos, const std::vector<Position>& cells) {

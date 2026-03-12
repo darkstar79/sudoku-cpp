@@ -242,6 +242,7 @@ void GameViewModel::updateConflictHighlighting() {
     gameState.update([&conflicts](model::GameState& state) { state.updateConflicts(conflicts); });
 }
 
+// CPD-OFF — row/col/box iteration with different operations (remove vs add+validate)
 void GameViewModel::cleanupConflictingNotes(model::GameState& state, const core::Position& pos, int number) {
     // Remove the placed number from notes in all related cells
 
@@ -353,5 +354,6 @@ void GameViewModel::restoreConflictingNotes(model::GameState& state, const core:
 
     spdlog::debug("Restored conflicting notes for number {} at ({}, {})", number, pos.row, pos.col);
 }
+// CPD-ON
 
 }  // namespace sudoku::viewmodel

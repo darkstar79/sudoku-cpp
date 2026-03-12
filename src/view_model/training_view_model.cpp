@@ -173,16 +173,7 @@ void TrainingViewModel::requestHint() {
     });
 
     // Apply hint highlights to the board
-    trainingBoard.update([&hint](TrainingBoard& board) {
-        for (size_t i = 0; i < hint.highlight_cells.size(); ++i) {
-            const auto& pos = hint.highlight_cells[i];
-            if (pos.row < 9 && pos.col < 9) {
-                board[pos.row][pos.col].highlight_role =
-                    (i < hint.highlight_roles.size()) ? hint.highlight_roles[i] : CellRole::Pattern;
-                board[pos.row][pos.col].player_selected = true;
-            }
-        }
-    });
+    trainingBoard.update([&hint](TrainingBoard& board) { applyHintHighlights(board, hint); });
 }
 
 void TrainingViewModel::skipExercise() {
@@ -294,16 +285,7 @@ void TrainingViewModel::revealSolution() {
     const auto& exercise = exercises_[idx];
     auto hint = getTrainingHint(exercise.technique, 3, exercise.expected_step);
 
-    feedbackBoard.update([&hint](TrainingBoard& board) {
-        for (size_t i = 0; i < hint.highlight_cells.size(); ++i) {
-            const auto& pos = hint.highlight_cells[i];
-            if (pos.row < 9 && pos.col < 9) {
-                board[pos.row][pos.col].highlight_role =
-                    (i < hint.highlight_roles.size()) ? hint.highlight_roles[i] : CellRole::Pattern;
-                board[pos.row][pos.col].player_selected = true;
-            }
-        }
-    });
+    feedbackBoard.update([&hint](TrainingBoard& board) { applyHintHighlights(board, hint); });
 }
 
 TechniqueDescription TrainingViewModel::currentDescription() const {
@@ -519,21 +501,7 @@ TrainingViewModel::EvalResult TrainingViewModel::evaluatePlacement(const Trainin
 TrainingViewModel::EvalResult TrainingViewModel::evaluateElimination(const TrainingBoard& player_board,
                                                                      const TrainingExercise& exercise) const {
     // Build set of player-marked eliminations
-    std::set<std::tuple<size_t, size_t, int>> player_set;
-    for (size_t r = 0; r < 9; ++r) {
-        for (size_t c = 0; c < 9; ++c) {
-            if (player_board[r][c].player_selected) {
-                uint16_t original_mask = exercise.candidate_masks[(r * 9) + c];
-                for (int v = 1; v <= 9; ++v) {
-                    bool was_candidate = (original_mask & (1 << v)) != 0;
-                    bool still_in_player = std::ranges::contains(player_board[r][c].candidates, v);
-                    if (was_candidate && !still_in_player) {
-                        player_set.emplace(r, c, v);
-                    }
-                }
-            }
-        }
-    }
+    auto player_set = extractPlayerEliminations(player_board, exercise);
 
     if (player_set.empty()) {
         return {.result = AnswerResult::Incorrect, .matched_step = std::nullopt};
@@ -642,21 +610,7 @@ void TrainingViewModel::buildDiffBoard(const TrainingBoard& player_board, const 
         }
 
         // Find player eliminations
-        std::set<std::tuple<size_t, size_t, int>> player_set;
-        for (size_t r = 0; r < 9; ++r) {
-            for (size_t c = 0; c < 9; ++c) {
-                if (player_board[r][c].player_selected) {
-                    uint16_t original_mask = exercise.candidate_masks[(r * 9) + c];
-                    for (int v = 1; v <= 9; ++v) {
-                        bool was_candidate = (original_mask & (1 << v)) != 0;
-                        bool still_in_player = std::ranges::contains(player_board[r][c].candidates, v);
-                        if (was_candidate && !still_in_player) {
-                            player_set.emplace(r, c, v);
-                        }
-                    }
-                }
-            }
-        }
+        auto player_set = extractPlayerEliminations(player_board, exercise);
 
         // Collect cells that need highlighting
         std::set<std::pair<size_t, size_t>> correct_cells;
@@ -713,6 +667,37 @@ void TrainingViewModel::recordLessonStats() {
     auto record_result = stats_manager_->recordLesson(result);
     if (!record_result) {
         spdlog::warn("Failed to record training lesson stats");
+    }
+}
+
+std::set<std::tuple<size_t, size_t, int>>
+TrainingViewModel::extractPlayerEliminations(const TrainingBoard& player_board, const TrainingExercise& exercise) {
+    std::set<std::tuple<size_t, size_t, int>> player_set;
+    for (size_t r = 0; r < 9; ++r) {
+        for (size_t c = 0; c < 9; ++c) {
+            if (player_board[r][c].player_selected) {
+                uint16_t original_mask = exercise.candidate_masks[(r * 9) + c];
+                for (int v = 1; v <= 9; ++v) {
+                    bool was_candidate = (original_mask & (1 << v)) != 0;
+                    bool still_in_player = std::ranges::contains(player_board[r][c].candidates, v);
+                    if (was_candidate && !still_in_player) {
+                        player_set.emplace(r, c, v);
+                    }
+                }
+            }
+        }
+    }
+    return player_set;
+}
+
+void TrainingViewModel::applyHintHighlights(TrainingBoard& board, const TrainingHint& hint) {
+    for (size_t i = 0; i < hint.highlight_cells.size(); ++i) {
+        const auto& pos = hint.highlight_cells[i];
+        if (pos.row < 9 && pos.col < 9) {
+            board[pos.row][pos.col].highlight_role =
+                (i < hint.highlight_roles.size()) ? hint.highlight_roles[i] : CellRole::Pattern;
+            board[pos.row][pos.col].player_selected = true;
+        }
     }
 }
 

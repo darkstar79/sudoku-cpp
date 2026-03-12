@@ -20,6 +20,7 @@
 #include "i_game_validator.h"
 #include "solve_step.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -172,6 +173,45 @@ protected:
     /// Checks if one position sees another (same row, column, or box)
     [[nodiscard]] static bool sees(const Position& pos_a, const Position& pos_b) {
         return pos_a.row == pos_b.row || pos_a.col == pos_b.col || sameBox(pos_a, pos_b);
+    }
+
+    /// Counts the number of unique boxes spanned by 4 cells
+    [[nodiscard]] static size_t countUniqueBoxes(const Position& c1, const Position& c2, const Position& c3,
+                                                 const Position& c4) {
+        std::vector<size_t> boxes = {getBoxIndex(c1.row, c1.col), getBoxIndex(c2.row, c2.col),
+                                     getBoxIndex(c3.row, c3.col), getBoxIndex(c4.row, c4.col)};
+        std::ranges::sort(boxes);
+        auto last = std::ranges::unique(boxes);
+        return static_cast<size_t>(std::ranges::distance(boxes.begin(), last.begin()));
+    }
+
+    /// Gets the unit index for a position given a region type
+    [[nodiscard]] static size_t getUnitIndex(RegionType type, const Position& pos) {
+        switch (type) {
+            case RegionType::Row:
+                return pos.row;
+            case RegionType::Col:
+                return pos.col;
+            case RegionType::Box:
+                return getBoxIndex(pos.row, pos.col);
+            default:
+                return 0;
+        }
+    }
+
+    /// Gets all empty cells in a unit (row, column, or box)
+    [[nodiscard]] static std::vector<Position> getEmptyCellsInUnit(const std::vector<std::vector<int>>& board,
+                                                                   RegionType type, size_t index) {
+        switch (type) {
+            case RegionType::Row:
+                return getEmptyCellsInRow(board, index);
+            case RegionType::Col:
+                return getEmptyCellsInCol(board, index);
+            case RegionType::Box:
+                return getEmptyCellsInBox(board, index);
+            default:
+                return {};
+        }
     }
 };
 

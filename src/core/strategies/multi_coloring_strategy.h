@@ -183,6 +183,7 @@ private:
         return std::nullopt;
     }
 
+    // CPD-OFF — graph coloring pattern shared with simple_coloring
     [[nodiscard]] static std::optional<SolveStep> buildWrapStep(const CandidateGrid& candidates, int value,
                                                                 const std::vector<size_t>& false_color) {
         std::vector<Elimination> eliminations;
@@ -216,6 +217,7 @@ private:
                                  .technique_subtype = 0,  // 0 = wrap
                                  .position_roles = std::vector<CellRole>(positions.size(), CellRole::ChainA)}};
     }
+    // CPD-ON
 
     // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — checks all uncolored cells against cluster color pairs; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> checkTrap(const std::vector<std::vector<int>>& board,

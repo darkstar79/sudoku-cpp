@@ -37,6 +37,7 @@ class XYChainStrategy : public ISolvingStrategy, protected StrategyBase {
 public:
     [[nodiscard]] std::optional<SolveStep> findStep(const std::vector<std::vector<int>>& board,
                                                     const CandidateGrid& candidates) const override {
+        // CPD-OFF — bivalue cell collection pattern shared with remote_pairs
         // Collect all bivalue cells
         std::vector<Position> bivalue_cells;
         for (size_t row = 0; row < BOARD_SIZE; ++row) {
@@ -46,6 +47,8 @@ public:
                 }
             }
         }
+
+        // CPD-ON
 
         if (bivalue_cells.size() < 4) {
             return std::nullopt;

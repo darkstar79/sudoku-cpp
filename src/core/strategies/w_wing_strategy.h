@@ -38,6 +38,7 @@ class WWingStrategy : public ISolvingStrategy, protected StrategyBase {
 public:
     [[nodiscard]] std::optional<SolveStep> findStep(const std::vector<std::vector<int>>& board,
                                                     const CandidateGrid& candidates) const override {
+        // CPD-OFF — bivalue cell collection pattern shared with UR and remote_pairs
         // Find all bivalue cells
         std::vector<Position> bivalue_cells;
         for (size_t row = 0; row < BOARD_SIZE; ++row) {
@@ -76,6 +77,7 @@ public:
                 }
             }
         }
+        // CPD-ON
 
         return std::nullopt;
     }

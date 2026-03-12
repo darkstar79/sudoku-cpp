@@ -132,6 +132,23 @@ enum class TechniqueCategory : uint8_t {
     return "unknown region";
 }
 
+/// Append explanation_data positions to hint with per-position roles (or a default)
+inline void appendDataHighlights(TrainingHint& hint, const ExplanationData& data, CellRole default_role) {
+    for (size_t i = 0; i < data.positions.size(); ++i) {
+        hint.highlight_cells.push_back(data.positions[i]);
+        auto role = (i < data.position_roles.size()) ? data.position_roles[i] : default_role;
+        hint.highlight_roles.push_back(role);
+    }
+}
+
+/// Append elimination positions to hint (highlighted as Fin/target)
+inline void appendEliminationHighlights(TrainingHint& hint, const SolveStep& expected) {
+    for (const auto& elim : expected.eliminations) {
+        hint.highlight_cells.push_back(elim.position);
+        hint.highlight_roles.push_back(CellRole::Fin);
+    }
+}
+
 /// Get a per-technique progressive hint for training exercises.
 /// @param technique The technique being practiced
 /// @param level Hint level (1-3)
@@ -178,17 +195,10 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else if (level == 2) {
                 hint.text = "These cells form the subset:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    hint.highlight_roles.push_back((i < data.position_roles.size()) ? data.position_roles[i]
-                                                                                    : CellRole::Pattern);
-                }
+                appendDataHighlights(hint, data, CellRole::Pattern);
             } else {
                 hint.text = "Eliminate candidates from cells that see all subset cells.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);  // Red-ish for elimination targets
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -202,16 +212,10 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else if (level == 2) {
                 hint.text = "The intersection cells:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    hint.highlight_roles.push_back(CellRole::Pattern);
-                }
+                appendDataHighlights(hint, data, CellRole::Pattern);
             } else {
                 hint.text = "Eliminate the candidate from cells outside the intersection.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -225,17 +229,10 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else if (level == 2) {
                 hint.text = "Base and cover sets:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::Pattern;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::Pattern);
             } else {
                 hint.text = "Eliminate the candidate from cover set cells outside the base set.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -255,17 +252,10 @@ enum class TechniqueCategory : uint8_t {
                 hint.highlight_roles = {CellRole::Pivot};
             } else if (level == 2) {
                 hint.text = "Pivot and wing cells:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::Wing;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::Wing);
             } else {
                 hint.text = "Eliminate the shared candidate from cells that see all wing endpoints.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -279,17 +269,10 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else if (level == 2) {
                 hint.text = "The chain cells:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::ChainA;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::ChainA);
             } else {
                 hint.text = "Cells that see both endpoints of the pattern can be eliminated.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -303,17 +286,10 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else if (level == 2) {
                 hint.text = "The coloring chain:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::ChainA;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::ChainA);
             } else {
                 hint.text = "One color must be false — eliminate from cells that see both colors.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -323,17 +299,10 @@ enum class TechniqueCategory : uint8_t {
                 hint.text = "Look for a deadly pattern — four cells forming a rectangle across two boxes.";
             } else if (level == 2) {
                 hint.text = "The rectangle corners:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::Roof;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::Roof);
             } else {
                 hint.text = "To avoid the deadly pattern, eliminate the candidate that would complete it.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -349,11 +318,7 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else if (level == 2) {
                 hint.text = "The chain path:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::ChainA;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::ChainA);
             } else {
                 if (expected.type == SolveStepType::Placement) {
                     hint.text =
@@ -362,10 +327,7 @@ enum class TechniqueCategory : uint8_t {
                     hint.highlight_roles = {CellRole::Pattern};
                 } else {
                     hint.text = "Eliminate candidates that contradict the chain logic.";
-                    for (const auto& elim : expected.eliminations) {
-                        hint.highlight_cells.push_back(elim.position);
-                        hint.highlight_roles.push_back(CellRole::Fin);
-                    }
+                    appendEliminationHighlights(hint, expected);
                 }
             }
             break;
@@ -376,17 +338,10 @@ enum class TechniqueCategory : uint8_t {
                 hint.text = "Look for an Almost Locked Set (a group of N cells with N+1 candidates).";
             } else if (level == 2) {
                 hint.text = "The ALS cells and restricted common:";
-                for (size_t i = 0; i < data.positions.size(); ++i) {
-                    hint.highlight_cells.push_back(data.positions[i]);
-                    auto role = (i < data.position_roles.size()) ? data.position_roles[i] : CellRole::SetA;
-                    hint.highlight_roles.push_back(role);
-                }
+                appendDataHighlights(hint, data, CellRole::SetA);
             } else {
                 hint.text = "Eliminate candidates from cells that see all relevant ALS members.";
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }
@@ -404,10 +359,7 @@ enum class TechniqueCategory : uint8_t {
                 }
             } else {
                 hint.text = expected.explanation;
-                for (const auto& elim : expected.eliminations) {
-                    hint.highlight_cells.push_back(elim.position);
-                    hint.highlight_roles.push_back(CellRole::Fin);
-                }
+                appendEliminationHighlights(hint, expected);
             }
             break;
         }

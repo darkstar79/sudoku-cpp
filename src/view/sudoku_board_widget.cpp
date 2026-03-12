@@ -76,6 +76,7 @@ QPointF SudokuBoardWidget::boardOrigin() const {
     return {(static_cast<float>(width()) - board_size) / 2.0F, (static_cast<float>(height()) - board_size) / 2.0F};
 }
 
+// CPD-OFF — Qt widget boilerplate shared with training_board_widget
 void SudokuBoardWidget::paintEvent(QPaintEvent* /*event*/) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
@@ -222,5 +223,6 @@ void SudokuBoardWidget::paintGridLines(QPainter& painter, const QPointF& origin,
         painter.drawLine(QPointF(origin.x(), origin.y() + pos), QPointF(origin.x() + board_size, origin.y() + pos));
     }
 }
+// CPD-ON
 
 }  // namespace sudoku::view

@@ -29,6 +29,7 @@
 
 namespace sudoku::view {
 
+// CPD-OFF — board color constants shared with sudoku_board_widget
 namespace TrainingBoardColors {
 inline constexpr QColor BOARD_BORDER{44, 44, 44};
 inline constexpr QColor BOARD_BACKGROUND{255, 255, 255};
@@ -87,6 +88,7 @@ public:
     /// Apply a color to the selected cell
     void applyColor(int color);
 
+    // CPD-OFF — Qt widget interface boilerplate
     [[nodiscard]] QSize minimumSizeHint() const override;
     [[nodiscard]] QSize sizeHint() const override;
 
@@ -120,6 +122,7 @@ private:
     void paintCellCandidates(QPainter& painter, const core::TrainingCellState& cell, const QRectF& cell_rect);
     void paintGridLines(QPainter& painter, const QPointF& origin, float board_size, float cell_size);
 
+    // CPD-ON
     [[nodiscard]] static QColor cellRoleColor(core::CellRole role);
     [[nodiscard]] static QColor playerColorBackground(int player_color);
 };

@@ -73,6 +73,7 @@ public:
     }
 
 private:
+    // CPD-OFF — row/col symmetry
     /// Check if a value in a row is confined to a single box
     [[nodiscard]] static std::optional<SolveStep> checkRowConfinedToBox(const CandidateGrid& candidates,
                                                                         const std::vector<std::vector<int>>& board,
@@ -173,6 +174,7 @@ private:
 
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

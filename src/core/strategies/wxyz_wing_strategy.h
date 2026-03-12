@@ -64,6 +64,7 @@ public:
     }
 
 private:
+    // CPD-OFF — wing enumeration with different nesting depths vs vwxyz_wing
     // NOLINTNEXTLINE(readability-function-cognitive-complexity,readability-function-size) — enumerates wing triples for WXYZ pattern; nesting is inherent
     [[nodiscard]] static std::optional<SolveStep> tryPivot(const std::vector<std::vector<int>>& board,
                                                            const CandidateGrid& candidates, const Position& pivot,
@@ -177,6 +178,7 @@ private:
 
         return std::nullopt;
     }
+    // CPD-ON
 };
 
 }  // namespace sudoku::core

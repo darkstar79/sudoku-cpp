@@ -281,6 +281,7 @@ int SIMDConstraintState::findNakedSingle(const Board& board) const {
 ///   at_least_once  |= cand                    — tracks digits seen in 1+ cells
 /// After scanning all cells: exactly_once = at_least_once & ~at_least_twice & ~region_used
 /// This reduces the inner loop from O(81) with unpredictable branches to O(9) branchless ops.
+// CPD-OFF — dirty-region optimization variant alongside full-scan; hot path
 template <typename BoardT>
 // NOLINTNEXTLINE(readability-function-cognitive-complexity) — three separate region scans (row/col/box); each is simple; clang-tidy accumulates across loops
 std::pair<int, int> SIMDConstraintState::findHiddenSingleImpl(const BoardT& board) const {
@@ -497,5 +498,6 @@ template std::pair<int, int>
 SIMDConstraintState::findHiddenSingleImpl<std::vector<std::vector<int>>>(const std::vector<std::vector<int>>&) const;
 template std::pair<int, int> SIMDConstraintState::findHiddenSingleImpl<Board>(const Board&) const;
 template std::pair<int, int> SIMDConstraintState::findHiddenSingleImpl<Board>(const Board&, uint32_t) const;
+// CPD-ON
 
 }  // namespace sudoku::core
