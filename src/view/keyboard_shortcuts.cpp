@@ -61,46 +61,47 @@ std::vector<ShortcutEntry> keyboardShortcuts(bool coloring_enabled) {
          .key = Qt::Key_1,
          .digit_family = true,
          .digit_max = core::MAX_VALUE},
+        {.action = ShortcutAction::ColorOverride,
+         .modifiers = Qt::AltModifier,
+         .key = Qt::Key_1,
+         .digit_family = true,
+         .digit_max = viewmodel::kColorPaletteSize},
+        {.action = ShortcutAction::CycleMode,
+         .modifiers = Qt::NoModifier,
+         .key = Qt::Key_Space,
+         .digit_family = false,
+         .digit_max = 0},
+        {.action = ShortcutAction::ClearActiveLayer,
+         .modifiers = Qt::NoModifier,
+         .key = Qt::Key_Delete,
+         .digit_family = false,
+         .digit_max = 0},
+        {.action = ShortcutAction::ClearValue,
+         .modifiers = Qt::ControlModifier,
+         .key = Qt::Key_Delete,
+         .digit_family = false,
+         .digit_max = 0},
+        {.action = ShortcutAction::ClearColor,
+         .modifiers = Qt::AltModifier,
+         .key = Qt::Key_Delete,
+         .digit_family = false,
+         .digit_max = 0},
+        {.action = ShortcutAction::ClearPencilMarks,
+         .modifiers = Qt::ShiftModifier,
+         .key = Qt::Key_Delete,
+         .digit_family = false,
+         .digit_max = 0},
+        {.action = ShortcutAction::Pause,
+         .modifiers = Qt::NoModifier,
+         .key = Qt::Key_P,
+         .digit_family = false,
+         .digit_max = 0},
     };
-    if (coloring_enabled) {
-        entries.push_back({.action = ShortcutAction::ColorOverride,
-                           .modifiers = Qt::AltModifier,
-                           .key = Qt::Key_1,
-                           .digit_family = true,
-                           .digit_max = viewmodel::kColorPaletteSize});
+    if (!coloring_enabled) {
+        std::erase_if(entries, [](const ShortcutEntry& entry) {
+            return entry.action == ShortcutAction::ColorOverride || entry.action == ShortcutAction::ClearColor;
+        });
     }
-    entries.push_back({.action = ShortcutAction::CycleMode,
-                       .modifiers = Qt::NoModifier,
-                       .key = Qt::Key_Space,
-                       .digit_family = false,
-                       .digit_max = 0});
-    entries.push_back({.action = ShortcutAction::ClearActiveLayer,
-                       .modifiers = Qt::NoModifier,
-                       .key = Qt::Key_Delete,
-                       .digit_family = false,
-                       .digit_max = 0});
-    entries.push_back({.action = ShortcutAction::ClearValue,
-                       .modifiers = Qt::ControlModifier,
-                       .key = Qt::Key_Delete,
-                       .digit_family = false,
-                       .digit_max = 0});
-    if (coloring_enabled) {
-        entries.push_back({.action = ShortcutAction::ClearColor,
-                           .modifiers = Qt::AltModifier,
-                           .key = Qt::Key_Delete,
-                           .digit_family = false,
-                           .digit_max = 0});
-    }
-    entries.push_back({.action = ShortcutAction::ClearPencilMarks,
-                       .modifiers = Qt::ShiftModifier,
-                       .key = Qt::Key_Delete,
-                       .digit_family = false,
-                       .digit_max = 0});
-    entries.push_back({.action = ShortcutAction::Pause,
-                       .modifiers = Qt::NoModifier,
-                       .key = Qt::Key_P,
-                       .digit_family = false,
-                       .digit_max = 0});
     return entries;
 }
 

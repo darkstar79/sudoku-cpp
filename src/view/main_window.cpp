@@ -780,6 +780,7 @@ void MainWindow::applySettings(const core::Settings& s) {
     // status-bar hint and the shortcuts dialog stop naming Color when the setting is off.
     coloring_enabled_ = s.enable_cell_coloring;
     updateButtonPanel();
+    mode_btn_->setToolTip(modeButtonTooltipText(coloring_enabled_));
     if (modifier_hint_label_) {
         modifier_hint_label_->setText(modifierHintText(coloring_enabled_));
     }
@@ -1083,7 +1084,7 @@ void MainWindow::updateButtonPanel() {
     redo_btn_->setEnabled(view_model_->canExecuteCommand(viewmodel::GameCommand::Redo));
 
     // Update input mode indicator. Cycling modes surface the Space cycle key on the face.
-    mode_btn_->setText(modeButtonText(view_model_->getInputMode(), coloring_enabled_));
+    mode_btn_->setText(modeButtonText(view_model_->getInputMode(), view_model_->isColoringEnabled()));
 
     // Update fill notes toggle state
     const auto& ui = view_model_->uiState.get();

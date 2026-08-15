@@ -145,17 +145,22 @@ void TestOptionalColoring::modeButtonAndHintTrackTheFlag() {
         return;
     }
     QVERIFY(hint->text().contains(view::nativeModifierName(Qt::AltModifier)));
+    QVERIFY(window_->mode_btn_->toolTip().contains(QStringLiteral("Color")));
 
     settings_->setEnableCellColoring(false);
     QApplication::processEvents();
 
     QVERIFY(!window_->mode_btn_->text().contains(QStringLiteral("Color")));
     QVERIFY(!hint->text().contains(view::nativeModifierName(Qt::AltModifier)));
+    // Regression: applySettings() refreshed the button face and the hint but not the tooltip,
+    // leaving it advertising "...Notes -> Color" on a board where Space no longer reaches it.
+    QVERIFY(!window_->mode_btn_->toolTip().contains(QStringLiteral("Color")));
 
     settings_->setEnableCellColoring(true);
     QApplication::processEvents();
 
     QVERIFY(hint->text().contains(view::nativeModifierName(Qt::AltModifier)));
+    QVERIFY(window_->mode_btn_->toolTip().contains(QStringLiteral("Color")));
 }
 
 void TestOptionalColoring::shortcutsDialogHasTwoFewerRowsWhenDisabled() {

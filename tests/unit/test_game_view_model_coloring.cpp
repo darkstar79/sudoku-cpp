@@ -77,10 +77,16 @@ TEST_CASE("GameViewModel - Disabled coloring makes every color entry point inert
     }
 
     SECTION("plain digit while input_mode == Color is a silent no-op") {
-        // Only reachable if the mode was already Color before the setting flipped (AC5 leaves
-        // Color mode, but a stale InputMode reaching handleNumberInput must still be inert).
+        // setColoringEnabled(false) already left Color mode (AC5) — force it back to simulate a
+        // stale InputMode reaching handleNumberInput (e.g. a caller that sets mode directly,
+        // bypassing the cycle). The Color case's own gate must still make this inert.
+        vm.setInputMode(InputMode::Color);
+        REQUIRE(vm.getInputMode() == InputMode::Color);
+
         vm.handleNumberInput(pos, 3, std::nullopt);
+
         REQUIRE(vm.gameState.get().getCellColor(pos.row, pos.col) == 0);
+        REQUIRE(vm.gameState.get().getCell(pos).value == 0);
     }
 
     SECTION("colorCell called directly is a silent no-op") {
