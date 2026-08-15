@@ -44,8 +44,8 @@ namespace {
 
 }  // namespace
 
-std::vector<ShortcutEntry> keyboardShortcuts() {
-    return {
+std::vector<ShortcutEntry> keyboardShortcuts(bool coloring_enabled) {
+    std::vector<ShortcutEntry> entries{
         {.action = ShortcutAction::ActiveModeDigit,
          .modifiers = Qt::NoModifier,
          .key = Qt::Key_1,
@@ -61,45 +61,50 @@ std::vector<ShortcutEntry> keyboardShortcuts() {
          .key = Qt::Key_1,
          .digit_family = true,
          .digit_max = core::MAX_VALUE},
-        {.action = ShortcutAction::ColorOverride,
-         .modifiers = Qt::AltModifier,
-         .key = Qt::Key_1,
-         .digit_family = true,
-         .digit_max = viewmodel::kColorPaletteSize},
-        {.action = ShortcutAction::CycleMode,
-         .modifiers = Qt::NoModifier,
-         .key = Qt::Key_Space,
-         .digit_family = false,
-         .digit_max = 0},
-        {.action = ShortcutAction::ClearActiveLayer,
-         .modifiers = Qt::NoModifier,
-         .key = Qt::Key_Delete,
-         .digit_family = false,
-         .digit_max = 0},
-        {.action = ShortcutAction::ClearValue,
-         .modifiers = Qt::ControlModifier,
-         .key = Qt::Key_Delete,
-         .digit_family = false,
-         .digit_max = 0},
-        {.action = ShortcutAction::ClearColor,
-         .modifiers = Qt::AltModifier,
-         .key = Qt::Key_Delete,
-         .digit_family = false,
-         .digit_max = 0},
-        {.action = ShortcutAction::ClearPencilMarks,
-         .modifiers = Qt::ShiftModifier,
-         .key = Qt::Key_Delete,
-         .digit_family = false,
-         .digit_max = 0},
-        {.action = ShortcutAction::Pause,
-         .modifiers = Qt::NoModifier,
-         .key = Qt::Key_P,
-         .digit_family = false,
-         .digit_max = 0},
     };
+    if (coloring_enabled) {
+        entries.push_back({.action = ShortcutAction::ColorOverride,
+                           .modifiers = Qt::AltModifier,
+                           .key = Qt::Key_1,
+                           .digit_family = true,
+                           .digit_max = viewmodel::kColorPaletteSize});
+    }
+    entries.push_back({.action = ShortcutAction::CycleMode,
+                       .modifiers = Qt::NoModifier,
+                       .key = Qt::Key_Space,
+                       .digit_family = false,
+                       .digit_max = 0});
+    entries.push_back({.action = ShortcutAction::ClearActiveLayer,
+                       .modifiers = Qt::NoModifier,
+                       .key = Qt::Key_Delete,
+                       .digit_family = false,
+                       .digit_max = 0});
+    entries.push_back({.action = ShortcutAction::ClearValue,
+                       .modifiers = Qt::ControlModifier,
+                       .key = Qt::Key_Delete,
+                       .digit_family = false,
+                       .digit_max = 0});
+    if (coloring_enabled) {
+        entries.push_back({.action = ShortcutAction::ClearColor,
+                           .modifiers = Qt::AltModifier,
+                           .key = Qt::Key_Delete,
+                           .digit_family = false,
+                           .digit_max = 0});
+    }
+    entries.push_back({.action = ShortcutAction::ClearPencilMarks,
+                       .modifiers = Qt::ShiftModifier,
+                       .key = Qt::Key_Delete,
+                       .digit_family = false,
+                       .digit_max = 0});
+    entries.push_back({.action = ShortcutAction::Pause,
+                       .modifiers = Qt::NoModifier,
+                       .key = Qt::Key_P,
+                       .digit_family = false,
+                       .digit_max = 0});
+    return entries;
 }
 
-QString shortcutActionLabel(ShortcutAction action) {
+QString shortcutActionLabel(ShortcutAction action, bool coloring_enabled) {
     // Literal core::loc("Sudoku", "...") calls so Qt's lupdate extracts each string.
     switch (action) {
         case ShortcutAction::ActiveModeDigit:
@@ -111,6 +116,9 @@ QString shortcutActionLabel(ShortcutAction action) {
         case ShortcutAction::ColorOverride:
             return QString::fromStdString(core::loc("Sudoku", "Apply a color (any mode)"));
         case ShortcutAction::CycleMode:
+            if (!coloring_enabled) {
+                return QString::fromStdString(core::loc("Sudoku", "Cycle input mode (Normal → Notes)"));
+            }
             return QString::fromStdString(core::loc("Sudoku", "Cycle input mode (Normal → Notes → Color)"));
         case ShortcutAction::ClearActiveLayer:
             return QString::fromStdString(core::loc("Sudoku", "Clear the active layer"));
@@ -145,14 +153,18 @@ QString shortcutChordText(const ShortcutEntry& entry) {
         .toString(QKeySequence::NativeText);
 }
 
-QString modifierHintText() {
+QString modifierHintText(bool coloring_enabled) {
     const QString separator = QStringLiteral(" · ");  // middle dot with spaces
     // Literal core::loc(...) calls (one per action word) so lupdate extracts each string.
-    return nativeModifierName(Qt::ControlModifier) + QStringLiteral("=") +
-           QString::fromStdString(core::loc("Sudoku", "value")) + separator + nativeModifierName(Qt::ShiftModifier) +
-           QStringLiteral("=") + QString::fromStdString(core::loc("Sudoku", "pencil")) + separator +
-           nativeModifierName(Qt::AltModifier) + QStringLiteral("=") +
-           QString::fromStdString(core::loc("Sudoku", "color"));
+    QString hint = nativeModifierName(Qt::ControlModifier) + QStringLiteral("=") +
+                   QString::fromStdString(core::loc("Sudoku", "value")) + separator +
+                   nativeModifierName(Qt::ShiftModifier) + QStringLiteral("=") +
+                   QString::fromStdString(core::loc("Sudoku", "pencil"));
+    if (coloring_enabled) {
+        hint += separator + nativeModifierName(Qt::AltModifier) + QStringLiteral("=") +
+                QString::fromStdString(core::loc("Sudoku", "color"));
+    }
+    return hint;
 }
 
 }  // namespace sudoku::view

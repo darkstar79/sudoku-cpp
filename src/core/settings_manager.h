@@ -44,6 +44,7 @@ public:
     void setShowSessionTimer(bool value) override;
     void setHighlightRegions(bool value) override;
     void setHighlightSameNumbers(bool value) override;
+    void setEnableCellColoring(bool value) override;
     void setCollectDetailedStats(bool value) override;
     void setEncryptDetailedStats(bool value) override;
     void setLanguage(std::string_view locale_code) override;

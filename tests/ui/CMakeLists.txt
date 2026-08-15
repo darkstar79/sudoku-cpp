@@ -20,6 +20,7 @@ set(UI_TEST_SOURCES
     test_board_highlighting.cpp
     test_chrome_legibility.cpp
     test_pause_mode.cpp
+    test_optional_coloring.cpp
 )
 
 foreach(TEST_SOURCE ${UI_TEST_SOURCES})

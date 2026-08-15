@@ -39,6 +39,7 @@ TEST_CASE("SettingsManager - Default values when no file exists", "[settings]") 
     CHECK(s.show_session_timer == false);
     CHECK(s.highlight_regions == true);
     CHECK(s.highlight_same_numbers == true);
+    CHECK(s.enable_cell_coloring == true);
     CHECK(s.language == "en");
     CHECK(s.experimental_training_mode == false);
     CHECK(s.experimental_coaching_hints == false);
@@ -296,6 +297,66 @@ TEST_CASE("SettingsManager - setHighlightRegions and setHighlightSameNumbers per
     SettingsManager mgr2(path);
     CHECK(mgr2.getSettings().highlight_regions == false);
     CHECK(mgr2.getSettings().highlight_same_numbers == false);
+}
+
+TEST_CASE("SettingsManager - enable_cell_coloring explicit false loads as false", "[settings][coloring]") {
+    sudoku::test::TempTestDir tmp;
+    auto path = tmp.path() / "settings.yaml";
+
+    {
+        std::ofstream out(path);
+        out << "display:\n"
+            << "  enable_cell_coloring: false\n";
+    }
+
+    SettingsManager mgr(path);
+    CHECK(mgr.getSettings().enable_cell_coloring == false);
+}
+
+TEST_CASE("SettingsManager - display block without enable_cell_coloring keeps coloring on (back-compat)",
+          "[settings][coloring]") {
+    // Simulates a settings.yaml written by a pre-8.21 binary: a display block exists (other
+    // keys present) but enable_cell_coloring is not known yet.
+    sudoku::test::TempTestDir tmp;
+    auto path = tmp.path() / "settings.yaml";
+
+    {
+        std::ofstream out(path);
+        out << "display:\n"
+            << "  show_conflicts: false\n"
+            << "  show_hints: true\n";
+    }
+
+    SettingsManager mgr(path);
+    const auto& s = mgr.getSettings();
+    CHECK(s.show_conflicts == false);  // sanity: the file did load
+    CHECK(s.enable_cell_coloring == true);
+}
+
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+TEST_CASE("SettingsManager - setEnableCellColoring persists, round-trips and notifies on change only",
+          "[settings][coloring]") {
+    sudoku::test::TempTestDir tmp;
+    auto path = tmp.path() / "settings.yaml";
+
+    {
+        SettingsManager mgr(path);
+        REQUIRE(mgr.getSettings().enable_cell_coloring == true);
+
+        int notify_count = 0;
+        mgr.settingsObservable().subscribe([&](const Settings&) { ++notify_count; });
+
+        mgr.setEnableCellColoring(false);
+        CHECK(mgr.getSettings().enable_cell_coloring == false);
+        CHECK(notify_count == 1);
+
+        // No-op transition: same value, no notification.
+        mgr.setEnableCellColoring(false);
+        CHECK(notify_count == 1);
+    }
+
+    SettingsManager mgr2(path);
+    CHECK(mgr2.getSettings().enable_cell_coloring == false);
 }
 
 TEST_CASE("SettingsManager - Save and load round-trip", "[settings]") {

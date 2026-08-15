@@ -54,10 +54,14 @@ struct ShortcutEntry {
 };
 
 /// The canonical keyboard map, in display order. The one list the dialog and hint consume.
-[[nodiscard]] std::vector<ShortcutEntry> keyboardShortcuts();
+/// coloring_enabled=false (story 8-21) omits the ColorOverride and ClearColor rows — the color
+/// layer entry points that story gates. Defaulted true so every existing call site and test
+/// keeps asserting today's (coloring-enabled) behavior unchanged.
+[[nodiscard]] std::vector<ShortcutEntry> keyboardShortcuts(bool coloring_enabled = true);
 
-/// Localized human label for an action category (via core::loc).
-[[nodiscard]] QString shortcutActionLabel(ShortcutAction action);
+/// Localized human label for an action category (via core::loc). With coloring_enabled=false,
+/// CycleMode returns the Normal -> Notes wording (story 8-21); every other action is unaffected.
+[[nodiscard]] QString shortcutActionLabel(ShortcutAction action, bool coloring_enabled = true);
 
 /// Native modifier name only — "Ctrl"/"Alt"/"Shift" on Windows/Linux, "⌘/⌥/⇧" on macOS —
 /// rendered via QKeySequence::toString(NativeText). Empty for Qt::NoModifier.
@@ -68,7 +72,8 @@ struct ShortcutEntry {
 [[nodiscard]] QString shortcutChordText(const ShortcutEntry& entry);
 
 /// Status-line micro-hint, e.g. "Ctrl=value · Shift=pencil · Alt=color": modifier names via
-/// NativeText (per OS), action words via core::loc.
-[[nodiscard]] QString modifierHintText();
+/// NativeText (per OS), action words via core::loc. With coloring_enabled=false (story 8-21) the
+/// "Alt=color" segment and its separator are dropped.
+[[nodiscard]] QString modifierHintText(bool coloring_enabled = true);
 
 }  // namespace sudoku::view

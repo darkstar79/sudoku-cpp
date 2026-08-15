@@ -9,6 +9,7 @@
 #pragma once
 
 #include "core/game_validator.h"
+#include "core/i_settings_manager.h"
 #include "core/i_time_provider.h"
 #include "core/puzzle_analyzer.h"
 #include "core/puzzle_generator.h"
@@ -42,7 +43,11 @@ struct UITestContext {
     std::shared_ptr<viewmodel::TrainingViewModel> training_vm;
     std::filesystem::path test_dir;
 
-    UITestContext() {
+    /// Optional settings manager, defaulted nullptr (matches GameViewModel's own default). When
+    /// provided, it is injected into game_vm at construction — otherwise a UI test flipping a
+    /// setting through a SettingsManager reaches MainWindow (bound separately by each test) but
+    /// never the ViewModel, which still gates gameplay off the default `true` (story 8-21).
+    explicit UITestContext(std::shared_ptr<core::ISettingsManager> settings_manager = nullptr) {
         test_dir = std::filesystem::temp_directory_path() /
                    ("ui_test_" + std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
         std::filesystem::create_directories(test_dir);
@@ -72,7 +77,7 @@ struct UITestContext {
         clipboard = std::make_shared<InMemoryClipboardProvider>();
 
         game_vm = std::make_shared<viewmodel::GameViewModel>(validator, generator, solver, stats_manager, save_manager,
-                                                             /*settings_manager=*/nullptr, analyzer, clipboard);
+                                                             std::move(settings_manager), analyzer, clipboard);
 
         auto exercise_gen = std::make_shared<core::TrainingExerciseGenerator>(generator, solver);
         training_vm = std::make_shared<viewmodel::TrainingViewModel>(exercise_gen);
