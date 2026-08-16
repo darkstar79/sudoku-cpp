@@ -286,3 +286,22 @@ TEST_CASE("GameViewModel - findStepByTechnique", "[game_view_model][hints][by_te
         REQUIRE(fixture.view_model->getHintCount() == initial_hints);
     }
 }
+
+// Regression (story 8-22, AC4): startNewGame() cleared move history and coaching state but never
+// hintMessage — a hint explanation from the puzzle just abandoned would survive, unchanged, into a
+// brand-new puzzle it no longer describes. resetGame() already cleared it; startNewGame() did not.
+TEST_CASE("GameViewModel - startNewGame clears a leftover hint explanation",
+          "[game_view_model][hints][regression][bug-hint-survives-new-game]") {
+    sudoku::test::GameViewModelFixture fixture;
+
+    fixture.view_model->startNewGame(Difficulty::Easy);
+    const auto& state = fixture.view_model->gameState.get();
+    auto empty_cell_opt = sudoku::test::findEmptyCell(state);
+    REQUIRE(empty_cell_opt.has_value());
+    fixture.view_model->getHint(empty_cell_opt);
+    REQUIRE_FALSE(fixture.view_model->hintMessage.get().empty());
+
+    fixture.view_model->startNewGame(Difficulty::Easy);
+
+    REQUIRE(fixture.view_model->hintMessage.get().empty());
+}

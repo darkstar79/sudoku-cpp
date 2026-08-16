@@ -136,6 +136,10 @@ void GameViewModel::startNewGame(core::Difficulty difficulty) {
     // Start statistics session
     startGameSession();
 
+    // A hint explanation from the previous puzzle must not survive into this one (story 8-22, AC4)
+    // — resetGame() already does this; startNewGame() did not.
+    hintMessage.set("");
+
     updateUIState();
     spdlog::info("New game started successfully");
 }
