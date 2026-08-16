@@ -44,6 +44,7 @@ public:
     virtual void setShowSessionTimer(bool value) = 0;
     virtual void setHighlightRegions(bool value) = 0;
     virtual void setHighlightSameNumbers(bool value) = 0;
+    virtual void setEnableCellColoring(bool value) = 0;
     virtual void setCollectDetailedStats(bool value) = 0;
     virtual void setEncryptDetailedStats(bool value) = 0;
     virtual void setLanguage(std::string_view locale_code) = 0;

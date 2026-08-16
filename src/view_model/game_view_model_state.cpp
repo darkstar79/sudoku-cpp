@@ -204,7 +204,7 @@ void GameViewModel::cycleInputMode() {
             next = InputMode::Notes;
             break;
         case InputMode::Notes:
-            next = InputMode::Color;
+            next = coloring_enabled_ ? InputMode::Color : InputMode::Normal;
             break;
         // Color and EditGivens deliberately share a body — both reset to Normal.
         // EditGivens is an explicit-entry mode (enterEditMode/commitEditedPuzzle), so the
@@ -455,6 +455,23 @@ void GameViewModel::setShowHints(bool show) {
     auto current_ui = uiState.get();
     current_ui.show_hints = show;
     uiState.set(current_ui);
+}
+
+void GameViewModel::setColoringEnabled(bool enabled) {
+    if (coloring_enabled_ == enabled) {
+        return;
+    }
+    coloring_enabled_ = enabled;
+    if (!enabled) {
+        if (getInputMode() == InputMode::Color) {
+            setInputMode(InputMode::Normal);
+        }
+        clearAllCellColors();  // colors are unreachable once the layer is inert
+    }
+}
+
+bool GameViewModel::isColoringEnabled() const {
+    return coloring_enabled_;
 }
 
 void GameViewModel::exportStatistics(const std::string& file_path) {

@@ -72,6 +72,9 @@ void loadDisplayFields(const YAML::Node& root, Settings& settings) {
     if (auto v = display["highlight_same_numbers"]) {
         settings.highlight_same_numbers = v.as<bool>();
     }
+    if (auto v = display["enable_cell_coloring"]) {
+        settings.enable_cell_coloring = v.as<bool>();
+    }
     if (auto v = display["collect_detailed_stats"]) {
         settings.collect_detailed_stats = v.as<bool>();
     }
@@ -203,6 +206,12 @@ void SettingsManager::setHighlightRegions(bool value) {
 void SettingsManager::setHighlightSameNumbers(bool value) {
     auto old = settings_;
     settings_.highlight_same_numbers = value;
+    notifyIfChanged(old);
+}
+
+void SettingsManager::setEnableCellColoring(bool value) {
+    auto old = settings_;
+    settings_.enable_cell_coloring = value;
     notifyIfChanged(old);
 }
 
@@ -348,6 +357,7 @@ void SettingsManager::save() const {
         display["show_session_timer"] = settings_.show_session_timer;
         display["highlight_regions"] = settings_.highlight_regions;
         display["highlight_same_numbers"] = settings_.highlight_same_numbers;
+        display["enable_cell_coloring"] = settings_.enable_cell_coloring;
         display["collect_detailed_stats"] = settings_.collect_detailed_stats;
         display["encrypt_detailed_stats"] = settings_.encrypt_detailed_stats;
         root["display"] = display;

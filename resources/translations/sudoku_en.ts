@@ -429,6 +429,10 @@ Current progress will be lost.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Input mode — Space cycles Normal → Notes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Pause</source>
         <translation type="unfinished"></translation>
     </message>
@@ -719,6 +723,14 @@ Current progress will be lost.</source>
     </message>
     <message>
         <source>Display total time since the app launched, on the right side of the status bar. Helpful as a reminder to take breaks. Independent of the per-puzzle timer on the left.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enable cell coloring (Color input mode)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mark cells with your own colors, using the Color input mode or Alt+1-6. This is manual marking, not one of the automatic highlights above. When off, Space switches between values and pencil marks only, and any colors already on the board are cleared.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -2263,6 +2275,10 @@ Current progress will be lost.</source>
     </message>
     <message>
         <source>Apply a color (any mode)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cycle input mode (Normal → Notes)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>

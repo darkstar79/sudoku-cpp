@@ -57,6 +57,7 @@ class TestEditMode;
 class TestKeyboardShortcuts;
 class TestPauseMode;
 class TestBoardHighlighting;
+class TestOptionalColoring;
 #endif
 
 namespace sudoku::view {
@@ -98,6 +99,11 @@ private:
 
     // Settings
     std::shared_ptr<core::ISettingsManager> settings_manager_;
+
+    /// Mirrors settings.enable_cell_coloring for presentation only (story 8-21) — the ViewModel
+    /// owns the actual gameplay gate. Written only inside applySettings(), read by
+    /// updateButtonPanel() / retranslateUi() / buildKeyboardShortcutsDialog().
+    bool coloring_enabled_{true};
 
     // Play-time limits (Story 6.7). Qt-free coordinator; the View only drives it on the tick and
     // reacts to its warn/close events.
@@ -243,6 +249,7 @@ private:
     friend class ::TestKeyboardShortcuts;
     friend class ::TestPauseMode;
     friend class ::TestBoardHighlighting;
+    friend class ::TestOptionalColoring;
 #endif
 };
 

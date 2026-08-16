@@ -64,6 +64,7 @@ void GameViewModel::applySettings(const core::Settings& s) {
         state.show_conflicts = s.show_conflicts;
         state.show_hints = s.show_hints;
     });
+    setColoringEnabled(s.enable_cell_coloring);
     // Wire detailed stats settings to statistics manager
     if (stats_manager_) {
         stats_manager_->setCollectDetailedStats(s.collect_detailed_stats);

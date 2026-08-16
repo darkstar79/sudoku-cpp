@@ -58,6 +58,9 @@ private slots:
     void helpMenuActionOpensShortcutsDialog();
     void modeButtonLabelSurfacesSpaceAffordance();
     void statusBarExposesModifierHint();
+    void disabledColoringOmitsColorEntriesFromSourceList();
+    void disabledColoringDropsAltFromModifierHint();
+    void disabledColoringChangesCycleModeLabel();
 
     // Qt needs `private slots:` for the test methods, kept separate from the plain-`private:`
     // data members below.
@@ -222,6 +225,37 @@ void TestKeyboardShortcuts::statusBarExposesModifierHint() {
     }
     QVERIFY(!hint->text().isEmpty());
     QVERIFY(hint->text().contains(view::nativeModifierName(Qt::ControlModifier)));
+}
+
+// Story 8-21: with coloring disabled, the source list drops exactly the two color-only rows —
+// the defaulted-parameter payoff means every case above (all no-arg calls) keeps passing unmodified.
+void TestKeyboardShortcuts::disabledColoringOmitsColorEntriesFromSourceList() {
+    const auto enabled = view::keyboardShortcuts(true);
+    const auto disabled = view::keyboardShortcuts(false);
+
+    QCOMPARE(disabled.size(), enabled.size() - 2);
+
+    for (const auto& entry : disabled) {
+        QVERIFY(entry.action != view::ShortcutAction::ColorOverride);
+        QVERIFY(entry.action != view::ShortcutAction::ClearColor);
+    }
+}
+
+void TestKeyboardShortcuts::disabledColoringDropsAltFromModifierHint() {
+    const QString hint = view::modifierHintText(false);
+
+    QVERIFY(!hint.isEmpty());
+    QVERIFY(hint.contains(view::nativeModifierName(Qt::ControlModifier)));
+    QVERIFY(hint.contains(view::nativeModifierName(Qt::ShiftModifier)));
+    QVERIFY(!hint.contains(view::nativeModifierName(Qt::AltModifier)));
+}
+
+void TestKeyboardShortcuts::disabledColoringChangesCycleModeLabel() {
+    const QString enabled_label = view::shortcutActionLabel(view::ShortcutAction::CycleMode, true);
+    const QString disabled_label = view::shortcutActionLabel(view::ShortcutAction::CycleMode, false);
+
+    QVERIFY(!disabled_label.isEmpty());
+    QVERIFY(disabled_label != enabled_label);
 }
 
 QTEST_MAIN(TestKeyboardShortcuts)

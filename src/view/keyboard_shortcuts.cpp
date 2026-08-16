@@ -44,8 +44,8 @@ namespace {
 
 }  // namespace
 
-std::vector<ShortcutEntry> keyboardShortcuts() {
-    return {
+std::vector<ShortcutEntry> keyboardShortcuts(bool coloring_enabled) {
+    std::vector<ShortcutEntry> entries{
         {.action = ShortcutAction::ActiveModeDigit,
          .modifiers = Qt::NoModifier,
          .key = Qt::Key_1,
@@ -97,9 +97,15 @@ std::vector<ShortcutEntry> keyboardShortcuts() {
          .digit_family = false,
          .digit_max = 0},
     };
+    if (!coloring_enabled) {
+        std::erase_if(entries, [](const ShortcutEntry& entry) {
+            return entry.action == ShortcutAction::ColorOverride || entry.action == ShortcutAction::ClearColor;
+        });
+    }
+    return entries;
 }
 
-QString shortcutActionLabel(ShortcutAction action) {
+QString shortcutActionLabel(ShortcutAction action, bool coloring_enabled) {
     // Literal core::loc("Sudoku", "...") calls so Qt's lupdate extracts each string.
     switch (action) {
         case ShortcutAction::ActiveModeDigit:
@@ -111,6 +117,9 @@ QString shortcutActionLabel(ShortcutAction action) {
         case ShortcutAction::ColorOverride:
             return QString::fromStdString(core::loc("Sudoku", "Apply a color (any mode)"));
         case ShortcutAction::CycleMode:
+            if (!coloring_enabled) {
+                return QString::fromStdString(core::loc("Sudoku", "Cycle input mode (Normal → Notes)"));
+            }
             return QString::fromStdString(core::loc("Sudoku", "Cycle input mode (Normal → Notes → Color)"));
         case ShortcutAction::ClearActiveLayer:
             return QString::fromStdString(core::loc("Sudoku", "Clear the active layer"));
@@ -145,14 +154,18 @@ QString shortcutChordText(const ShortcutEntry& entry) {
         .toString(QKeySequence::NativeText);
 }
 
-QString modifierHintText() {
+QString modifierHintText(bool coloring_enabled) {
     const QString separator = QStringLiteral(" · ");  // middle dot with spaces
     // Literal core::loc(...) calls (one per action word) so lupdate extracts each string.
-    return nativeModifierName(Qt::ControlModifier) + QStringLiteral("=") +
-           QString::fromStdString(core::loc("Sudoku", "value")) + separator + nativeModifierName(Qt::ShiftModifier) +
-           QStringLiteral("=") + QString::fromStdString(core::loc("Sudoku", "pencil")) + separator +
-           nativeModifierName(Qt::AltModifier) + QStringLiteral("=") +
-           QString::fromStdString(core::loc("Sudoku", "color"));
+    QString hint = nativeModifierName(Qt::ControlModifier) + QStringLiteral("=") +
+                   QString::fromStdString(core::loc("Sudoku", "value")) + separator +
+                   nativeModifierName(Qt::ShiftModifier) + QStringLiteral("=") +
+                   QString::fromStdString(core::loc("Sudoku", "pencil"));
+    if (coloring_enabled) {
+        hint += separator + nativeModifierName(Qt::AltModifier) + QStringLiteral("=") +
+                QString::fromStdString(core::loc("Sudoku", "color"));
+    }
+    return hint;
 }
 
 }  // namespace sudoku::view

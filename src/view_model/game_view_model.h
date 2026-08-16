@@ -323,6 +323,12 @@ public:
     void setShowHints(bool show);
     void fillNotes();
 
+    /// Enable/disable the color input layer (story 8-21). Disabling drops Color out of the Space
+    /// cycle, makes every color entry point inert, leaves Color mode, and clears existing colors —
+    /// colors are ephemeral, so nothing persisted is lost.
+    void setColoringEnabled(bool enabled);
+    [[nodiscard]] bool isColoringEnabled() const;
+
     // Statistics
     void refreshStatistics();
     void exportStatistics(const std::string& file_path);
@@ -382,6 +388,9 @@ private:
     /// so does any manual save taken from it (story 8.16 / D2, SavedGame::history_complete).
     bool move_history_complete_{true};
     bool auto_save_enabled_{true};
+    // Gates the color input layer (story 8-21). The {true} default is load-bearing — every
+    // tests/unit fixture builds this ViewModel with settings_manager == nullptr (AC2).
+    bool coloring_enabled_{true};
     double current_puzzle_rating_{0.0};  // Rating of current puzzle (SE scale)
     std::set<core::SolvingTechnique> current_puzzle_techniques_;
     bool current_puzzle_requires_backtracking_{false};

@@ -90,7 +90,12 @@ namespace {
 // Mode-button face text. The three cycling modes surface the Space cycle key on the visible
 // label (not only the tooltip) — AC-1 / UX spec §Discoverability. EditGivens keeps its plain
 // label. The Space glyph is rendered via NativeText; the parenthesized layout is translatable.
-[[nodiscard]] QString modeButtonText(viewmodel::InputMode mode) {
+// coloring_enabled (story 8-21) defends the Color case: cycleInputMode() already keeps the
+// active mode from ever becoming Color while disabled, but a direct setInputMode(Color) call
+// (e.g. from a test) would otherwise still render "Color" on a board where the feature is off.
+// The `case` stays regardless — no `default:` — so -Wswitch still forces a future InputMode
+// enumerator to be handled here.
+[[nodiscard]] QString modeButtonText(viewmodel::InputMode mode, bool coloring_enabled = true) {
     const QString space = QKeySequence(Qt::Key_Space).toString(QKeySequence::NativeText);
     // base is an already-localized mode name; the literal core::loc("Sudoku", "...") calls below
     // keep each mode name extractable by lupdate (passing a variable to core::loc would hide it).
@@ -103,11 +108,20 @@ namespace {
         case viewmodel::InputMode::Notes:
             return cycling(core::loc("Sudoku", "Notes"));
         case viewmodel::InputMode::Color:
-            return cycling(core::loc("Sudoku", "Color"));
+            return cycling(coloring_enabled ? core::loc("Sudoku", "Color") : core::loc("Sudoku", "Normal"));
         case viewmodel::InputMode::EditGivens:
             return QString::fromStdString(core::loc("Sudoku", "Edit"));
     }
     return {};
+}
+
+// Mode-button tooltip text (story 8-21). Set at construction and again in retranslateUi() — two
+// sites, both must change together or a language switch silently restores the wrong wording.
+[[nodiscard]] QString modeButtonTooltipText(bool coloring_enabled) {
+    if (coloring_enabled) {
+        return QString::fromStdString(core::loc("Sudoku", "Input mode — Space cycles Normal → Notes → Color"));
+    }
+    return QString::fromStdString(core::loc("Sudoku", "Input mode — Space cycles Normal → Notes"));
 }
 
 }  // namespace
@@ -223,8 +237,8 @@ void MainWindow::setupButtonPanel(QVBoxLayout* game_layout) {
     undo_valid_btn_ = new QPushButton(qstr(core::loc("Sudoku", "Undo Until Valid")));
     auto_notes_btn_ = new QPushButton(qstr(core::loc("Sudoku", "Fill Notes")));
     auto_notes_btn_->setCheckable(true);
-    mode_btn_ = new QPushButton(modeButtonText(viewmodel::InputMode::Normal));
-    mode_btn_->setToolTip(qstr(core::loc("Sudoku", "Input mode — Space cycles Normal → Notes → Color")));
+    mode_btn_ = new QPushButton(modeButtonText(viewmodel::InputMode::Normal, coloring_enabled_));
+    mode_btn_->setToolTip(modeButtonTooltipText(coloring_enabled_));
     pause_btn_ = new QPushButton(qstr(core::loc("Sudoku", "Pause")));
     pause_btn_->setToolTip(qstr(core::loc("Sudoku", "Pause — stop the timer and hide the board (P)")));
 
@@ -579,7 +593,7 @@ void MainWindow::setupStatusBar() {
     // Modifier names render per-OS via NativeText; the single source of truth is
     // keyboard_shortcuts.cpp. addPermanentWidget anchors it to the right, left of the
     // optional session timer added just below.
-    modifier_hint_label_ = new QLabel(modifierHintText());
+    modifier_hint_label_ = new QLabel(modifierHintText(coloring_enabled_));
     modifier_hint_label_->setObjectName("modifierHintLabel");
     statusBar()->addPermanentWidget(modifier_hint_label_);
 
@@ -761,6 +775,15 @@ void MainWindow::applySettings(const core::Settings& s) {
     }
 
     applyHighlightOptions(s);
+
+    // Presentation-only mirror of the ViewModel's gameplay gate (story 8-21) — mode button,
+    // status-bar hint and the shortcuts dialog stop naming Color when the setting is off.
+    coloring_enabled_ = s.enable_cell_coloring;
+    updateButtonPanel();
+    mode_btn_->setToolTip(modeButtonTooltipText(coloring_enabled_));
+    if (modifier_hint_label_) {
+        modifier_hint_label_->setText(modifierHintText(coloring_enabled_));
+    }
 }
 
 void MainWindow::applyHighlightOptions(const core::Settings& s) {
@@ -1061,7 +1084,7 @@ void MainWindow::updateButtonPanel() {
     redo_btn_->setEnabled(view_model_->canExecuteCommand(viewmodel::GameCommand::Redo));
 
     // Update input mode indicator. Cycling modes surface the Space cycle key on the face.
-    mode_btn_->setText(modeButtonText(view_model_->getInputMode()));
+    mode_btn_->setText(modeButtonText(view_model_->getInputMode(), view_model_->isColoringEnabled()));
 
     // Update fill notes toggle state
     const auto& ui = view_model_->uiState.get();
@@ -1534,7 +1557,7 @@ QDialog* MainWindow::buildKeyboardShortcutsDialog() {
     dialog->setWindowTitle(qstr(core::loc("Sudoku", "Keyboard Shortcuts")));
     dialog->setMinimumSize(420, 360);
 
-    const auto shortcuts = keyboardShortcuts();
+    const auto shortcuts = keyboardShortcuts(coloring_enabled_);
     auto* table = new QTableWidget(static_cast<int>(shortcuts.size()), 2, dialog);
     table->setObjectName("keyboardShortcutsTable");
     table->setHorizontalHeaderLabels({qstr(core::loc("Sudoku", "Action")), qstr(core::loc("Sudoku", "Shortcut"))});
@@ -1545,7 +1568,7 @@ QDialog* MainWindow::buildKeyboardShortcutsDialog() {
 
     for (int row = 0; std::cmp_less(row, shortcuts.size()); ++row) {
         const auto& entry = shortcuts[static_cast<size_t>(row)];
-        table->setItem(row, 0, new QTableWidgetItem(shortcutActionLabel(entry.action)));
+        table->setItem(row, 0, new QTableWidgetItem(shortcutActionLabel(entry.action, coloring_enabled_)));
         table->setItem(row, 1, new QTableWidgetItem(shortcutChordText(entry)));
     }
     table->resizeColumnsToContents();
@@ -1717,11 +1740,11 @@ void MainWindow::retranslateUi() {
     undo_valid_btn_->setText(qstr(core::loc("Sudoku", "Undo Until Valid")));
     auto_notes_btn_->setText(auto_notes_btn_->isChecked() ? qstr(core::loc("Sudoku", "Clear Notes"))
                                                           : qstr(core::loc("Sudoku", "Fill Notes")));
-    mode_btn_->setToolTip(qstr(core::loc("Sudoku", "Input mode — Space cycles Normal → Notes → Color")));
+    mode_btn_->setToolTip(modeButtonTooltipText(coloring_enabled_));
 
     // Status-bar keyboard micro-hint (modifier names re-render per the active locale).
     if (modifier_hint_label_) {
-        modifier_hint_label_->setText(modifierHintText());
+        modifier_hint_label_->setText(modifierHintText(coloring_enabled_));
     }
 
     // Status bar and mode button
@@ -1798,6 +1821,14 @@ void MainWindow::showSettingsDialog() {
         core::loc("Sudoku", "Display total time since the app launched, on the right side of the status bar. "
                             "Helpful as a reminder to take breaks. Independent of the per-puzzle timer on the left.")));
     display_layout->addWidget(show_session_timer_cb);
+
+    auto* cell_coloring_cb = new QCheckBox(qstr(core::loc("Sudoku", "Enable cell coloring (Color input mode)")));
+    cell_coloring_cb->setChecked(settings_manager_->getSettings().enable_cell_coloring);
+    cell_coloring_cb->setToolTip(qstr(
+        core::loc("Sudoku", "Mark cells with your own colors, using the Color input mode or Alt+1-6. This is manual "
+                            "marking, not one of the automatic highlights above. When off, Space switches between "
+                            "values and pencil marks only, and any colors already on the board are cleared.")));
+    display_layout->addWidget(cell_coloring_cb);
 
     // Language selection. The combo applies the new locale via setLanguage(),
     // which fires the settings observer -> applyLocale() -> LanguageChange
@@ -1982,6 +2013,10 @@ void MainWindow::showSettingsDialog() {
     });
 
     connectCheckBox(show_session_timer_cb, [this](bool checked) { settings_manager_->setShowSessionTimer(checked); });
+
+    connectCheckBox(cell_coloring_cb, [this](bool checked) {
+        settings_manager_->setEnableCellColoring(checked);  // observer -> applySettings -> everything
+    });
 
     connectCheckBox(collect_stats_cb, [this, encrypt_stats_cb](bool checked) {
         encrypt_stats_cb->setEnabled(checked);

@@ -35,6 +35,7 @@ struct Settings {
     bool show_session_timer{false};
     bool highlight_regions{true};       // Row/column/box of the focus cell
     bool highlight_same_numbers{true};  // Same placed value + matching pencil marks + hovered candidate
+    bool enable_cell_coloring{true};    // Color input layer: Space cycle arm + Alt+digit + palette
     bool collect_detailed_stats{false};
     bool encrypt_detailed_stats{true};
 

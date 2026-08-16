@@ -214,6 +214,9 @@ void GameViewModel::clearAllNotes() {
 }
 
 void GameViewModel::colorCell(const core::Position& pos, uint8_t color_index) {
+    if (!coloring_enabled_) {
+        return;
+    }
     gameState.update(
         [&pos, color_index](model::GameState& state) { state.setCellColor(pos.row, pos.col, color_index); });
 }
@@ -286,6 +289,9 @@ void GameViewModel::handleNumberInput(const core::Position& pos, int number, std
             }
             break;
         case InputMode::Color:
+            if (!coloring_enabled_) {
+                return;
+            }
             if (number <= kColorPaletteSize) {
                 if (override_layer.has_value()) {
                     // Alt override toggles off when re-applying the same color, and replaces
