@@ -134,6 +134,9 @@ void TestHintDisplay::hintTakenShowsExplanationPanel() {
     auto* label = window_->findChild<QLabel*>("hintExplanationLabel");
     QVERIFY(panel != nullptr);
     QVERIFY(label != nullptr);
+    if (panel == nullptr || label == nullptr) {
+        return;
+    }
     QVERIFY(!panel->isVisible());
 
     const auto pos = selectEmptyCellOn(*window_, ctx_->game_vm);
@@ -147,6 +150,9 @@ void TestHintDisplay::hintTakenShowsExplanationPanel() {
 void TestHintDisplay::findByTechniqueAlsoShowsExplanationPanel() {
     auto* panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(panel != nullptr);
+    if (panel == nullptr) {
+        return;
+    }
     QVERIFY(!panel->isVisible());
 
     ctx_->game_vm->findStepByTechnique(core::SolvingTechnique::NakedSingle);
@@ -158,6 +164,9 @@ void TestHintDisplay::findByTechniqueAlsoShowsExplanationPanel() {
 void TestHintDisplay::newGameClearsExplanationPanel() {
     auto* panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(panel != nullptr);
+    if (panel == nullptr) {
+        return;
+    }
 
     const auto pos = selectEmptyCellOn(*window_, ctx_->game_vm);
     ctx_->game_vm->getHint(pos);
@@ -176,6 +185,9 @@ void TestHintDisplay::showHintsFalseHidesExplanationButKeepsHintWorking() {
 
     auto* panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(panel != nullptr);
+    if (panel == nullptr) {
+        return;
+    }
 
     const auto pos = selectEmptyCellOn(*window_, ctx_->game_vm);
     const int hints_before = ctx_->game_vm->getHintCount();
@@ -199,6 +211,9 @@ void TestHintDisplay::showHintsTrueShowsExplanation() {
 
     auto* panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(panel != nullptr);
+    if (panel == nullptr) {
+        return;
+    }
 
     const auto pos = selectEmptyCellOn(*window_, ctx_->game_vm);
     ctx_->game_vm->getHint(pos);
@@ -229,6 +244,9 @@ void TestHintDisplay::startupWithPersistedShowHintsFalseNeverShowsExplanation() 
 
     auto* panel = fresh_window.findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(panel != nullptr);
+    if (panel == nullptr) {
+        return;
+    }
 
     const auto pos = selectEmptyCellOn(fresh_window, fresh_ctx->game_vm);
     fresh_ctx->game_vm->getHint(pos);
@@ -240,6 +258,9 @@ void TestHintDisplay::startupWithPersistedShowHintsFalseNeverShowsExplanation() 
 void TestHintDisplay::togglingShowHintsLiveAffectsWithoutRestart() {
     auto* panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(panel != nullptr);
+    if (panel == nullptr) {
+        return;
+    }
 
     settings_->setShowHints(false);
     QApplication::processEvents();
@@ -262,6 +283,9 @@ void TestHintDisplay::togglingShowHintsLiveAffectsWithoutRestart() {
 void TestHintDisplay::coachingActiveHidesLeftoverBasicHintPanel() {
     auto* hint_panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(hint_panel != nullptr);
+    if (hint_panel == nullptr) {
+        return;
+    }
 
     const auto pos = selectEmptyCellOn(*window_, ctx_->game_vm);
     ctx_->game_vm->getHint(pos);
@@ -283,6 +307,9 @@ void TestHintDisplay::coachingActiveHidesLeftoverBasicHintPanel() {
 void TestHintDisplay::basicHintDismissesActiveCoachingPanel() {
     auto* hint_panel = window_->findChild<QWidget*>("hintExplanationPanel");
     QVERIFY(hint_panel != nullptr);
+    if (hint_panel == nullptr) {
+        return;
+    }
 
     ctx_->game_vm->requestCoachingHint();
     QApplication::processEvents();
