@@ -718,6 +718,10 @@ Current progress will be lost.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>Show the explanation of why a hint&apos;s digit goes there. When off, a hint still reveals the digit and still costs a hint — just without the explanation.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Show session timer (right of status bar)</source>
         <translation type="unfinished"></translation>
     </message>

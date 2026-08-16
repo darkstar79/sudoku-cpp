@@ -479,6 +479,11 @@ void GameViewModel::applyDifficultyScore(const core::BoardData& board) {
 }
 
 void GameViewModel::findStepByTechnique(core::SolvingTechnique technique) {
+    // Clear any prior hint text up front, mirroring getHint() — every non-success exit below
+    // otherwise left a stale explanation visible alongside the new errorMessage (story 8-22 code
+    // review finding).
+    hintMessage.set("");
+
     if (!isGameActive()) {
         return;
     }

@@ -58,6 +58,7 @@ class TestKeyboardShortcuts;
 class TestPauseMode;
 class TestBoardHighlighting;
 class TestOptionalColoring;
+class TestHintDisplay;
 #endif
 
 namespace sudoku::view {
@@ -137,6 +138,19 @@ private:
     QPushButton* coaching_check_btn_{nullptr};
     QPushButton* coaching_apply_btn_{nullptr};
     QPushButton* coaching_dismiss_btn_{nullptr};
+
+    // Basic-hint explanation panel (story 8-22) — a sibling of coaching_panel_, not a shared
+    // widget: the two surfaces never share state, so coaching-vs-basic-hint arbitration is just
+    // "whichever became active last hides the other" (see onCoachingStateChanged /
+    // updateHintPanelVisibility) rather than fighting over one label's text.
+    QWidget* hint_panel_{nullptr};
+    QLabel* hint_label_{nullptr};
+
+    // Cache of the latest GameViewModel::hintMessage value and the current display.show_hints
+    // setting, so updateHintPanelVisibility() can be called from either the hintMessage observer
+    // or applySettings() without re-deriving the other half.
+    std::string last_hint_message_;
+    bool show_hints_enabled_{true};
     QStackedWidget* central_stack_{nullptr};
     QPushButton* new_game_btn_{nullptr};
     QLabel* difficulty_label_{nullptr};
@@ -185,6 +199,7 @@ private:
     void setupStatusBar();
     void setupCentralWidget();
     void setupCoachingPanel();
+    void setupHintPanel();
     void setupButtonPanel(QVBoxLayout* game_layout);
     void setupAutoSaveTimer();
 
@@ -225,6 +240,12 @@ private:
     void updateToolBar();
     void updateButtonPanel();
     void onCoachingStateChanged(const viewmodel::CoachingState& coaching);
+    void onHintMessageChanged(const std::string& message);
+
+    /// Single render decision for hint_panel_, derived from last_hint_message_ and
+    /// show_hints_enabled_. Called from both the hintMessage observer and applySettings() (story
+    /// 8-22, mirroring the applySettings single-apply-path convention from 8-19/8-20).
+    void updateHintPanelVisibility();
 
     /// Toggle pause: resume a paused game, otherwise pause a running one. No-op when there is
     /// nothing to pause (no active/complete game). Driven by the Pause button, the P shortcut,
@@ -250,6 +271,7 @@ private:
     friend class ::TestPauseMode;
     friend class ::TestBoardHighlighting;
     friend class ::TestOptionalColoring;
+    friend class ::TestHintDisplay;
 #endif
 };
 

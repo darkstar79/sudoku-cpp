@@ -21,6 +21,7 @@ set(UI_TEST_SOURCES
     test_chrome_legibility.cpp
     test_pause_mode.cpp
     test_optional_coloring.cpp
+    test_hint_display.cpp
 )
 
 foreach(TEST_SOURCE ${UI_TEST_SOURCES})

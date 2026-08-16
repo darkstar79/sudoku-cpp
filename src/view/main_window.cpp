@@ -216,6 +216,24 @@ void MainWindow::setupCoachingPanel() {
     });
 }
 
+void MainWindow::setupHintPanel() {
+    hint_panel_ = new QWidget;
+    hint_panel_->setObjectName("hintExplanationPanel");
+    hint_panel_->setStyleSheet(QString("QWidget { background-color: %1; border: 1px solid %2; border-radius: 6px; }")
+                                   .arg(StyleColors::COACHING_BG, StyleColors::COACHING_BORDER));
+    auto* hint_layout = new QHBoxLayout(hint_panel_);
+    hint_layout->setContentsMargins(12, 8, 12, 8);
+
+    hint_label_ = new QLabel;
+    hint_label_->setObjectName("hintExplanationLabel");
+    hint_label_->setWordWrap(true);
+    hint_label_->setStyleSheet(QString("QLabel { color: %1; font-size: 13px; background: transparent; border: none; }")
+                                   .arg(StyleColors::COACHING_TEXT));
+
+    hint_layout->addWidget(hint_label_, 1);
+    hint_panel_->hide();
+}
+
 void MainWindow::setupButtonPanel(QVBoxLayout* game_layout) {
     auto* button_panel = new QWidget;
     button_panel->setStyleSheet(QString("QWidget { background-color: %1; border-top: 1px solid %2; }")
@@ -307,11 +325,13 @@ void MainWindow::setupCentralWidget() {
     connect(board_widget_, &SudokuBoardWidget::resumeRequested, this, &MainWindow::togglePause);
 
     setupCoachingPanel();
+    setupHintPanel();
 
     auto* game_page = new QWidget;
     auto* game_layout = new QVBoxLayout(game_page);
     game_layout->setContentsMargins(0, 0, 0, 0);
     game_layout->addWidget(coaching_panel_);
+    game_layout->addWidget(hint_panel_);
     game_layout->addWidget(board_widget_, 1);
 
     setupButtonPanel(game_layout);
@@ -660,6 +680,8 @@ void MainWindow::setViewModel(std::shared_ptr<viewmodel::GameViewModel> view_mod
         });
         observer_.observe(view_model_->coachingState,
                           [this](const viewmodel::CoachingState& coaching) { onCoachingStateChanged(coaching); });
+        observer_.observe(view_model_->hintMessage,
+                          [this](const std::string& message) { onHintMessageChanged(message); });
 
         // observe() does not fire on subscribe, so sync the control states once now — otherwise
         // the Pause/Undo/... buttons keep their default-enabled look until the first state change
@@ -677,6 +699,17 @@ void MainWindow::onCoachingStateChanged(const viewmodel::CoachingState& coaching
         }
         board_widget_->setBoard(toBoardRenderData(view_model_->gameState.get()));
         return;
+    }
+
+    // Coaching wins: a basic-hint explanation left over from before coaching started must not sit
+    // alongside the coaching panel (AC8), including after a later settings change re-evaluates
+    // hint_panel_'s visibility — so the cached message is cleared, not just the widget hidden. The
+    // reverse direction — a basic hint arriving while coaching is active — is already handled
+    // ViewModel-side: getHint()/findStepByTechnique() call resetCoachingState() before publishing
+    // hintMessage, so this branch runs before the basic hint's own text ever shows.
+    last_hint_message_.clear();
+    if (hint_panel_) {
+        hint_panel_->hide();
     }
 
     if (coaching_panel_) {
@@ -711,6 +744,23 @@ void MainWindow::onCoachingStateChanged(const viewmodel::CoachingState& coaching
         render[pos.row][pos.col].highlight_role = role;
     }
     board_widget_->setBoard(render);
+}
+
+void MainWindow::onHintMessageChanged(const std::string& message) {
+    last_hint_message_ = message;
+    updateHintPanelVisibility();
+}
+
+void MainWindow::updateHintPanelVisibility() {
+    if (!hint_panel_) {
+        return;
+    }
+    if (last_hint_message_.empty() || !show_hints_enabled_) {
+        hint_panel_->hide();
+        return;
+    }
+    hint_label_->setText(QString::fromStdString(last_hint_message_));
+    hint_panel_->show();
 }
 
 void MainWindow::setTrainingViewModel(std::shared_ptr<viewmodel::TrainingViewModel> training_vm) {
@@ -775,6 +825,11 @@ void MainWindow::applySettings(const core::Settings& s) {
     }
 
     applyHighlightOptions(s);
+
+    // Story 8-22 (AC1 Option A): "Show Hints" gates the hint-explanation panel, not the hint
+    // feature itself — the digit reveal, budget and stats recording are untouched (AC9).
+    show_hints_enabled_ = s.show_hints;
+    updateHintPanelVisibility();
 
     // Presentation-only mirror of the ViewModel's gameplay gate (story 8-21) — mode button,
     // status-bar hint and the shortcuts dialog stop naming Color when the setting is off.
@@ -1813,6 +1868,9 @@ void MainWindow::showSettingsDialog() {
 
     auto* show_hints_cb = new QCheckBox(qstr(core::loc("Sudoku", "Show Hints")));
     show_hints_cb->setChecked(settings_manager_->getSettings().show_hints);
+    show_hints_cb->setToolTip(
+        qstr(core::loc("Sudoku", "Show the explanation of why a hint's digit goes there. When off, a hint still "
+                                 "reveals the digit and still costs a hint — just without the explanation.")));
     display_layout->addWidget(show_hints_cb);
 
     auto* show_session_timer_cb = new QCheckBox(qstr(core::loc("Sudoku", "Show session timer (right of status bar)")));
@@ -2006,8 +2064,12 @@ void MainWindow::showSettingsDialog() {
     });
 
     connectCheckBox(show_hints_cb, [this](bool checked) {
-        settings_manager_->setShowHints(checked);
+        settings_manager_->setShowHints(
+            checked);  // observer -> applySettings -> updateHintPanelVisibility (story 8-22)
         if (view_model_) {
+            // Vestigial: nothing reads UIState::show_hints (the render path is
+            // show_hints_enabled_/updateHintPanelVisibility()). Kept only for bug #15's regression
+            // tests — see story 8-22, and 8-20 for the identical show_conflicts precedent.
             view_model_->setShowHints(checked);
         }
     });

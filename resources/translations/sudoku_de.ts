@@ -720,6 +720,10 @@ Der aktuelle Fortschritt geht verloren.</translation>
         <translation>Hinweise anzeigen</translation>
     </message>
     <message>
+        <source>Show the explanation of why a hint&apos;s digit goes there. When off, a hint still reveals the digit and still costs a hint — just without the explanation.</source>
+        <translation>Zeigt die Erklärung, warum die Ziffer eines Hinweises dorthin gehört. Wenn deaktiviert, deckt ein Hinweis weiterhin die Ziffer auf und kostet weiterhin einen Hinweis — nur ohne die Erklärung.</translation>
+    </message>
+    <message>
         <source>Show session timer (right of status bar)</source>
         <translation>Sitzungszeit anzeigen (rechts in der Statusleiste)</translation>
     </message>
