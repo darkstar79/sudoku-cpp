@@ -287,6 +287,34 @@ TEST_CASE("GameViewModel - findStepByTechnique", "[game_view_model][hints][by_te
     }
 }
 
+// Regression (story 8-22 code review): findStepByTechnique()'s failure path never cleared
+// hintMessage, unlike getHint() (which clears it up front for exactly this reason — see the
+// comment at game_view_model_hints.cpp:127-130). A stale explanation from an earlier successful
+// lookup therefore survived alongside a fresh errorMessage. The SECTIONs in the TEST_CASE above
+// never caught this because they manually reset hintMessage to "" before each call.
+TEST_CASE("GameViewModel - findStepByTechnique clears a stale hintMessage on failure",
+          "[game_view_model][hints][by_technique][regression][bug-findbytechnique-stale-hint]") {
+    sudoku::test::GameViewModelFixture fixture;
+
+    // Same deterministic near-complete board as the TEST_CASE above.
+    SavedGame saved;
+    saved.original_puzzle = {{0, 3, 0, 6, 7, 8, 9, 1, 2}, {6, 0, 2, 1, 9, 5, 3, 4, 8}, {0, 9, 8, 3, 4, 2, 5, 6, 7},
+                             {8, 5, 9, 7, 0, 1, 4, 2, 3}, {4, 2, 6, 0, 0, 3, 7, 9, 1}, {7, 1, 3, 9, 2, 0, 8, 5, 6},
+                             {9, 6, 1, 5, 3, 7, 2, 8, 0}, {2, 8, 7, 4, 1, 9, 6, 0, 5}, {3, 4, 5, 2, 8, 6, 0, 7, 0}};
+    saved.current_state = saved.original_puzzle;
+    saved.difficulty = Difficulty::Easy;
+    fixture.view_model->restoreGameState(saved);
+
+    fixture.view_model->findStepByTechnique(core::SolvingTechnique::NakedSingle);
+    REQUIRE_FALSE(fixture.view_model->hintMessage.get().empty());
+
+    // A near-complete board with one empty cell cannot surface SueDeCoq.
+    fixture.view_model->findStepByTechnique(core::SolvingTechnique::SueDeCoq);
+
+    REQUIRE(fixture.view_model->hintMessage.get().empty());
+    REQUIRE_FALSE(fixture.view_model->errorMessage.get().empty());
+}
+
 // Regression (story 8-22, AC4): startNewGame() cleared move history and coaching state but never
 // hintMessage — a hint explanation from the puzzle just abandoned would survive, unchanged, into a
 // brand-new puzzle it no longer describes. resetGame() already cleared it; startNewGame() did not.
